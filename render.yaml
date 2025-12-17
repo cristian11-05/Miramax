@@ -28,18 +28,15 @@ services:
         sync: false
 
   # ==========================================
-  # 2. FRONTEND SERVICE (React Static Site)
+  # 2. FRONTEND SERVICE (React via Node.js server)
   # ==========================================
-  - type: static
+  - type: web
     name: miramax-frontend
-    env: static
+    env: node
+    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+    startCommand: npx serve -s dist -l $PORT
     envVars:
       - key: VITE_API_URL
         fromService:
