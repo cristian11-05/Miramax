@@ -39,10 +39,7 @@ services:
     startCommand: npx serve -s dist -l $PORT
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: miramax-backend
-          property: url
+        sync: false # You must enter the Backend URL here after deployment (e.g., https://miramax-backend.onrender.com)
 
 # ==========================================
 # DATABASE NOTE:
