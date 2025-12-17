@@ -1,0 +1,55 @@
+services:
+  # ==========================================
+  # 1. BACKEND SERVICE (Node.js API)
+  # ==========================================
+  - type: web
+    name: miramax-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+      - key: DB_HOST
+        sync: false # User must provide this in Render Dashboard
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_PORT
+        value: 3306
+      - key: JWT_SECRET
+        sync: false
+
+  # ==========================================
+  # 2. FRONTEND SERVICE (React Static Site)
+  # ==========================================
+  - type: static
+    name: miramax-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: miramax-backend
+          property: url
+
+# ==========================================
+# DATABASE NOTE:
+# Render does NOT provide managed MySQL.
+# You must use an external provider (PlanetScale, Aiven, etc.)
+# and enter the credentials in the Render Dashboard.
+# ==========================================
