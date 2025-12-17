@@ -10,6 +10,7 @@ const pool = mysql.createPool({
     database: process.env.DB_NAME || 'miramax_cobranzas',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
