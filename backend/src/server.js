@@ -21,7 +21,12 @@ const PORT = process.env.PORT || 3000;
 
 // CORS
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4173'],
+    origin: [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:4173',
+        'https://miramax-frontend-eovh.onrender.com' // Production Frontend
+    ],
     credentials: true
 }));
 
