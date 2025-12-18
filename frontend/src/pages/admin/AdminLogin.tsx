@@ -23,7 +23,9 @@ export default function AdminLogin() {
 
             navigate('/admin/dashboard');
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Error al iniciar sesión');
+            const errorData = err.response?.data;
+            const detailedMsg = errorData?.message ? `${errorData.error}: ${errorData.message}` : (errorData?.error || 'Error al iniciar sesión');
+            setError(detailedMsg);
         } finally {
             setLoading(false);
         }

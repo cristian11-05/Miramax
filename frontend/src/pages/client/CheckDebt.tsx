@@ -29,9 +29,10 @@ export default function CheckDebt() {
             }
         } catch (err: any) {
             console.error('CheckDebt error:', err);
-            const msg = err.response?.data?.error || err.message || 'Error desconocido';
+            const errorData = err.response?.data;
+            const detailedMsg = errorData?.message ? `${errorData.error}: ${errorData.message}` : (errorData?.error || 'Error desconocido');
             const status = err.response?.status ? ` (${err.response.status})` : '';
-            setError(`${msg}${status}`);
+            setError(`${detailedMsg}${status}`);
         } finally {
             setLoading(false);
         }
