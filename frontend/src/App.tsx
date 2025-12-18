@@ -20,6 +20,7 @@ import StaffSelection from './pages/staff/StaffSelection';
 
 function App() {
     const APP_TYPE = import.meta.env.VITE_APP_TYPE || 'full'; // 'client', 'staff', or 'full'
+    console.log("🚀 MIRAMAX Portal Mode:", APP_TYPE);
 
     return (
         <BrowserRouter>
