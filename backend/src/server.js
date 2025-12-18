@@ -54,6 +54,38 @@ app.get('/', (req, res) => {
 });
 
 // Rutas de la API
+app.get('/api/health', async (req, res) => {
+    const dbConfig = {
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        user: process.env.DB_USER,
+        database: process.env.DB_NAME,
+        ssl: process.env.DB_SSL,
+        node_env: process.env.NODE_ENV
+    };
+
+    let dbStatus = 'pendente';
+    let dbError = null;
+
+    try {
+        await pool.query('SELECT 1');
+        dbStatus = 'connected';
+    } catch (err) {
+        dbStatus = 'failed';
+        dbError = err.message;
+    }
+
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        config: dbConfig,
+        database: {
+            status: dbStatus,
+            error: dbError
+        }
+    });
+});
+
 app.use('/api/client', clientRoutes);
 app.use('/api/collector', collectorRoutes);
 app.use('/api/admin', adminRoutes);
