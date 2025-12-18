@@ -105,33 +105,62 @@ export default function CheckDebt() {
                     </button>
                 </form>
 
+                {/* Staff links ONLY in full or staff mode */}
+                {import.meta.env.VITE_APP_TYPE !== 'client' && (
+                    <>
+                        <div style={{
+                            marginTop: 'var(--spacing-6)',
+                            paddingTop: 'var(--spacing-4)',
+                            borderTop: '1px solid var(--gray-200)',
+                            textAlign: 'center'
+                        }}>
+                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)' }}>
+                                ¿Eres cobrador de MIRAMAX?
+                            </p>
+                            <a href="/cobrador/login" className="btn btn-outline" style={{ marginTop: 'var(--spacing-2)' }}>
+                                Iniciar Sesión como Cobrador
+                            </a>
+                        </div>
+
+                        <div style={{
+                            marginTop: 'var(--spacing-4)',
+                            textAlign: 'center'
+                        }}>
+                            <a
+                                href="/admin/login"
+                                style={{
+                                    fontSize: 'var(--font-size-sm)',
+                                    color: 'var(--gray-500)',
+                                    textDecoration: 'none'
+                                }}
+                            >
+                                Acceso Administrativo
+                            </a>
+                        </div>
+                    </>
+                )}
+
+                {/* Always show WhatsApp button for Clients/Public */}
                 <div style={{
                     marginTop: 'var(--spacing-6)',
-                    paddingTop: 'var(--spacing-4)',
-                    borderTop: '1px solid var(--gray-200)',
-                    textAlign: 'center'
-                }}>
-                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)' }}>
-                        ¿Eres cobrador de MIRAMAX?
-                    </p>
-                    <a href="/cobrador/login" className="btn btn-outline" style={{ marginTop: 'var(--spacing-2)' }}>
-                        Iniciar Sesión como Cobrador
-                    </a>
-                </div>
-
-                <div style={{
-                    marginTop: 'var(--spacing-4)',
                     textAlign: 'center'
                 }}>
                     <a
-                        href="/admin/login"
+                        href="https://wa.me/51918762620?text=Hola,%20vengo%20de%20la%20web%20y%20necesito%20ayuda%20con%20mi%20deuda"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn"
                         style={{
-                            fontSize: 'var(--font-size-sm)',
-                            color: 'var(--gray-500)',
-                            textDecoration: 'none'
+                            backgroundColor: '#25D366',
+                            color: 'white',
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '10px'
                         }}
                     >
-                        Acceso Administrativo
+                        <span>💬</span> Ayuda por WhatsApp
                     </a>
                 </div>
             </div>
