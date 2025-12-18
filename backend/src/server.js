@@ -84,7 +84,9 @@ app.use((err, req, res, next) => {
 
 // ==================== INICIO DEL SERVIDOR ====================
 
-app.listen(PORT, () => {
+import pool from './config/database.js';
+
+app.listen(PORT, async () => {
     console.log(`
   ╔═══════════════════════════════════════╗
   ║   🌐 MIRAMAX Collections API         ║
@@ -94,6 +96,24 @@ app.listen(PORT, () => {
   ║   🔧 Entorno: ${process.env.NODE_ENV || 'development'}      ║
   ╚═══════════════════════════════════════╝
   `);
+
+    // Probar conexión a la base de datos al iniciar
+    try {
+        console.log('🔄 Probando conexión a la base de datos...');
+        const [rows] = await pool.query('SELECT 1 as connection_test');
+        console.log('✅ Base de datos conectada exitosamente:', rows);
+    } catch (err) {
+        console.error('❌ ERROR CRÍTICO: No se pudo conectar a la base de datos');
+        console.error('Detalles:', {
+            host: process.env.DB_HOST,
+            port: process.env.DB_PORT,
+            user: process.env.DB_USER,
+            ssl: process.env.DB_SSL,
+            error: err.message,
+            code: err.code
+        });
+        console.error('CONSEJO: Verifica que el IP de Render esté permitido en el Firewall de Aiven (o permite 0.0.0.0/0).');
+    }
 });
 
 export default app;
