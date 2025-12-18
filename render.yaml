@@ -28,18 +28,36 @@ services:
         sync: false
 
   # ==========================================
-  # 2. FRONTEND SERVICE (React via Node.js server)
+  # 2. CLIENT PORTAL (Public)
   # ==========================================
   - type: web
-    name: miramax-frontend
+    name: miramax-clientes
     env: node
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     startCommand: npx serve -s dist -l $PORT
     envVars:
+      - key: VITE_APP_TYPE
+        value: client
       - key: VITE_API_URL
-        sync: false # You must enter the Backend URL here after deployment (e.g., https://miramax-backend.onrender.com)
+        sync: false # Poner la URL del Backend aquí
+
+  # ==========================================
+  # 3. STAFF PORTAL (Admin/Collectors)
+  # ==========================================
+  - type: web
+    name: miramax-staff
+    env: node
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s dist -l $PORT
+    envVars:
+      - key: VITE_APP_TYPE
+        value: staff
+      - key: VITE_API_URL
+        sync: false # Poner la URL del Backend aquí
 
 # ==========================================
 # DATABASE NOTE:

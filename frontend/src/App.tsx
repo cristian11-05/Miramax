@@ -17,30 +17,44 @@ import CollectorManagement from './pages/admin/CollectorManagement';
 import PaymentVerification from './pages/admin/PaymentVerification';
 
 function App() {
+    const APP_TYPE = import.meta.env.VITE_APP_TYPE || 'full'; // 'client', 'staff', or 'full'
+
     return (
         <BrowserRouter>
             <Routes>
-                {/* Ruta principal - redirige al portal del cliente */}
-                <Route path="/" element={<Navigate to="/consulta" replace />} />
+                {/* 1. LOGICA DE PORTAL DE CLIENTES */}
+                {(APP_TYPE === 'client' || APP_TYPE === 'full') && (
+                    <>
+                        <Route path="/" element={<Navigate to="/consulta" replace />} />
+                        <Route path="/consulta" element={<CheckDebt />} />
+                        <Route path="/deuda/:dni" element={<DebtDetails />} />
+                        <Route path="/pago/yape/:dni" element={<YapePayment />} />
+                    </>
+                )}
 
-                {/* Portal del Cliente (Público) */}
-                <Route path="/consulta" element={<CheckDebt />} />
-                <Route path="/deuda/:dni" element={<DebtDetails />} />
-                <Route path="/pago/yape/:dni" element={<YapePayment />} />
+                {/* 2. LOGICA DE PORTAL DE PERSONAL (Staff) */}
+                {(APP_TYPE === 'staff' || APP_TYPE === 'full') && (
+                    <>
+                        {/* Redirección por defecto para staff si entran al root */}
+                        {APP_TYPE === 'staff' && (
+                            <Route path="/" element={<Navigate to="/admin/login" replace />} />
+                        )}
 
-                {/* Portal del Cobrador */}
-                <Route path="/cobrador/login" element={<CollectorLogin />} />
-                <Route path="/cobrador/dashboard" element={<CollectorDashboard />} />
+                        <Route path="/cobrador/login" element={<CollectorLogin />} />
+                        <Route path="/cobrador/dashboard" element={<CollectorDashboard />} />
+                        <Route path="/admin/login" element={<AdminLogin />} />
+                        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                        <Route path="/admin/clients" element={<ClientManagement />} />
+                        <Route path="/admin/collectors" element={<CollectorManagement />} />
+                        <Route path="/admin/payments/verification" element={<PaymentVerification />} />
+                    </>
+                )}
 
-                {/* Portal Administrativo */}
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                <Route path="/admin/clients" element={<ClientManagement />} />
-                <Route path="/admin/collectors" element={<CollectorManagement />} />
-                <Route path="/admin/payments/verification" element={<PaymentVerification />} />
+                {/* Catch-all para rutas no permitidas en el portal actual */}
+                <Route path="*" element={<Navigate to="/" replace />} />
 
-                {/* 404 */}
-                <Route path="*" element={<NotFound />} />
+                {/* 404 (Opcional, ahora redirigimos al inicio del portal) */}
+                {/* <Route path="*" element={<NotFound />} /> */}
             </Routes>
         </BrowserRouter>
     );

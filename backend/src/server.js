@@ -25,7 +25,9 @@ app.use(cors({
         'http://localhost:5173',
         'http://127.0.0.1:5173',
         'http://localhost:4173',
-        'https://miramax-frontend-eovh.onrender.com' // Production Frontend
+        'https://miramax-frontend-eovh.onrender.com', // Production Frontend
+        /https:\/\/miramax-clientes.*\.onrender\.com$/,
+        /https:\/\/miramax-staff.*\.onrender\.com$/
     ],
     credentials: true
 }));
