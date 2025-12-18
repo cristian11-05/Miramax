@@ -133,7 +133,7 @@ export default function YapePayment() {
 
             setSuccess(true); // Cambiar vista a "En revisión"
             setLoading(false);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error al procesar solicitud WhatsApp:', err);
             setLoading(false);
             const errorMessage = err.response?.data?.error || 'Error al conectar. Intenta de nuevo.';
