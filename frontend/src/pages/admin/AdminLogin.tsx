@@ -112,6 +112,32 @@ export default function AdminLogin() {
                             'Acceder'
                         )}
                     </button>
+
+                    {/* Debug Button */}
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            try {
+                                const res = await api.get('/health');
+                                alert(`DB Status: ${res.data.database.status}\nError: ${res.data.database.error || 'None'}`);
+                            } catch (e: any) {
+                                alert(`Error al conectar con API: ${e.message}`);
+                            }
+                        }}
+                        style={{
+                            marginTop: 'var(--spacing-4)',
+                            background: 'none',
+                            border: '1px dashed var(--gray-400)',
+                            color: 'var(--gray-500)',
+                            fontSize: '0.7rem',
+                            cursor: 'pointer',
+                            padding: '5px',
+                            width: '100%',
+                            borderRadius: '4px'
+                        }}
+                    >
+                        🛠️ Probar Conexión Técnica (Debug)
+                    </button>
                 </form>
 
                 <div style={{
