@@ -15,6 +15,8 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import ClientManagement from './pages/admin/ClientManagement';
 import CollectorManagement from './pages/admin/CollectorManagement';
 import PaymentVerification from './pages/admin/PaymentVerification';
+import StaffSelection from './pages/staff/StaffSelection';
+
 
 function App() {
     const APP_TYPE = import.meta.env.VITE_APP_TYPE || 'full'; // 'client', 'staff', or 'full'
@@ -35,9 +37,9 @@ function App() {
                 {/* 2. LOGICA DE PORTAL DE PERSONAL (Staff) */}
                 {(APP_TYPE === 'staff' || APP_TYPE === 'full') && (
                     <>
-                        {/* Redirección por defecto para staff si entran al root */}
+                        {/* Pantalla de selección para el personal (Admin o Cobrador) */}
                         {APP_TYPE === 'staff' && (
-                            <Route path="/" element={<Navigate to="/admin/login" replace />} />
+                            <Route path="/" element={<StaffSelection />} />
                         )}
 
                         <Route path="/cobrador/login" element={<CollectorLogin />} />
