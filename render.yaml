@@ -3,7 +3,7 @@ services:
   # 1. BACKEND SERVICE (Node.js API)
   # ==========================================
   - type: web
-    name: miramax-backend
+    name: miramax-backend-jpon
     env: node
     plan: free
     rootDir: backend

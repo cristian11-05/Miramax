@@ -59,6 +59,7 @@ function App() {
                 {/* 404 (Opcional, ahora redirigimos al inicio del portal) */}
                 {/* <Route path="*" element={<NotFound />} /> */}
             </Routes>
+            <div style={{ position: 'fixed', bottom: '10px', right: '10px', fontSize: '10px', color: 'rgba(0,0,0,0.2)', pointerEvents: 'none' }}>v1.1.2</div>
         </BrowserRouter>
     );
 }
