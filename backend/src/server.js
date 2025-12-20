@@ -55,27 +55,30 @@ app.get('/', (req, res) => {
 
 // Rutas de la API
 app.get('/api/health', async (req, res) => {
-    const dbConfig = {
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT,
-        user: process.env.DB_USER,
-        database: process.env.DB_NAME,
-        ssl: process.env.DB_SSL,
-        node_env: process.env.NODE_ENV
-    };
+    // Listar las llaves que el servidor REALMENTE ve
+    const envKeys = Object.keys(process.env)
+        .filter(k => k.startsWith('DB_') || k.startsWith('DATABASE_') || k === 'NODE_ENV');
+
+    const dbConfig = {};
+    envKeys.forEach(k => {
+        // Enmascarar password
+        if (k.includes('PASS') || k.includes('URL') || k.includes('SECRET')) {
+            dbConfig[k] = '*** (Definida) ***';
+        } else {
+            dbConfig[k] = process.env[k];
+        }
+    });
 
     let dbStatus = 'pendente';
     let dbError = null;
     let dnsResult = null;
 
     try {
-        const dns = require('dns').promises;
-        const host = (process.env.DB_HOST || '').trim();
-        if (host) {
-            dnsResult = await dns.lookup(host).catch(e => ({ error: e.message }));
-        }
+        const dns = await import('node:dns/promises');
+        const host = (process.env.DB_HOST || 'mysql-305387e2-zavaletacristianbd.j.aivencloud.com').trim();
+        dnsResult = await dns.lookup(host).then(addr => addr.address).catch(e => `Error DNS: ${e.message}`);
     } catch (e) {
-        dnsResult = { error: 'dns module not available' };
+        dnsResult = `Módulo DNS error: ${e.message}`;
     }
 
     try {
@@ -89,8 +92,9 @@ app.get('/api/health', async (req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        config: dbConfig,
-        dns: dnsResult,
+        env_detected: envKeys,
+        config_masked: dbConfig,
+        dns_lookup: dnsResult,
         database: {
             status: dbStatus,
             error: dbError
