@@ -3,27 +3,37 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Configuración de conexión flexible
-const connectionConfig = process.env.DATABASE_URL
-    ? { uri: process.env.DATABASE_URL.trim() }
-    : {
-        host: (process.env.DB_HOST || '').trim(),
-        port: parseInt(process.env.DB_PORT || '3306', 10),
-        database: (process.env.DB_NAME || '').trim(),
-        user: (process.env.DB_USER || '').trim(),
-        password: (process.env.DB_PASSWORD || '').trim(),
-    };
+// Configuración de conexión flexible y robusta
+let pool;
 
-const DB_SSL = (process.env.DB_SSL || 'false').trim().toLowerCase() === 'true';
+if (process.env.DATABASE_URL) {
+    // Si hay una URL completa, la usamos directamente (es lo más seguro para Aiven)
+    const dbUri = process.env.DATABASE_URL.trim();
+    console.log('🔗 Usando DATABASE_URL para la conexión');
+    pool = mysql.createPool(dbUri);
+} else {
+    // Si no, usamos campos individuales
+    const host = (process.env.DB_HOST || '').trim();
+    const user = (process.env.DB_USER || '').trim();
+    const pass = (process.env.DB_PASSWORD || '').trim();
+    const name = (process.env.DB_NAME || '').trim();
+    const port = parseInt(process.env.DB_PORT || '16851', 10);
+    const ssl = (process.env.DB_SSL || 'false').trim().toLowerCase() === 'true';
 
-// Crear pool de conexiones a MySQL
-const pool = mysql.createPool({
-    ...connectionConfig,
-    ssl: DB_SSL ? { rejectUnauthorized: false } : undefined,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
+    console.log(`🔗 Conectando a ${host}:${port} (SSL: ${ssl})`);
+
+    pool = mysql.createPool({
+        host: host || 'localhost',
+        port: port,
+        user: user || 'avnadmin',
+        password: pass,
+        database: name || 'defaultdb',
+        ssl: ssl ? { rejectUnauthorized: false } : undefined,
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0
+    });
+}
 
 // Función helper para ejecutar queries
 export const query = async (text, params = []) => {

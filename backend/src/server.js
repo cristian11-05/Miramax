@@ -74,15 +74,20 @@ app.get('/api/health', async (req, res) => {
     let dnsResult = null;
 
     try {
-        const dns = await import('node:dns/promises');
-        const host = (process.env.DB_HOST || 'mysql-305387e2-zavaletacristianbd.j.aivencloud.com').trim();
-        dnsResult = await dns.lookup(host).then(addr => addr.address).catch(e => `Error DNS: ${e.message}`);
+        const dns = require('dns');
+        const hostToTest = (process.env.DB_HOST || 'mysql-305387e2-zavaletacristianbd.j.aivencloud.com').trim();
+        dnsResult = await new Promise((resolve) => {
+            dns.resolve4(hostToTest, (err, addresses) => {
+                if (err) resolve(`Error DNS: ${err.code} (${err.message})`);
+                else resolve(`OK: ${addresses.join(', ')}`);
+            });
+        });
     } catch (e) {
         dnsResult = `Módulo DNS error: ${e.message}`;
     }
 
     try {
-        await pool.query('SELECT 1');
+        const [rows] = await pool.query('SELECT 1');
         dbStatus = 'connected';
     } catch (err) {
         dbStatus = 'failed';
