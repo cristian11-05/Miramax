@@ -66,6 +66,17 @@ app.get('/api/health', async (req, res) => {
 
     let dbStatus = 'pendente';
     let dbError = null;
+    let dnsResult = null;
+
+    try {
+        const dns = require('dns').promises;
+        const host = (process.env.DB_HOST || '').trim();
+        if (host) {
+            dnsResult = await dns.lookup(host).catch(e => ({ error: e.message }));
+        }
+    } catch (e) {
+        dnsResult = { error: 'dns module not available' };
+    }
 
     try {
         await pool.query('SELECT 1');
@@ -79,6 +90,7 @@ app.get('/api/health', async (req, res) => {
         status: 'ok',
         timestamp: new Date().toISOString(),
         config: dbConfig,
+        dns: dnsResult,
         database: {
             status: dbStatus,
             error: dbError
