@@ -3,14 +3,23 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Configuración de conexión flexible
+const connectionConfig = process.env.DATABASE_URL
+    ? { uri: process.env.DATABASE_URL.trim() }
+    : {
+        host: (process.env.DB_HOST || '').trim(),
+        port: parseInt(process.env.DB_PORT || '3306', 10),
+        database: (process.env.DB_NAME || '').trim(),
+        user: (process.env.DB_USER || '').trim(),
+        password: (process.env.DB_PASSWORD || '').trim(),
+    };
+
+const DB_SSL = (process.env.DB_SSL || 'false').trim().toLowerCase() === 'true';
+
 // Crear pool de conexiones a MySQL
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
-    database: process.env.DB_NAME || 'miramax_cobranzas',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+    ...connectionConfig,
+    ssl: DB_SSL ? { rejectUnauthorized: false } : undefined,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
