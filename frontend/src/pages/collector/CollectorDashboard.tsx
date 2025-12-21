@@ -306,57 +306,152 @@ export default function CollectorDashboard() {
 
             {/* Modal de Pago */}
             {selectedClient && (
-                <div className="modal-overlay">
-                    <div className="modal" style={{ maxWidth: '500px' }}>
+                <div className="modal-overlay" style={{
+                    backdropFilter: 'blur(8px)',
+                    backgroundColor: 'rgba(0,0,0,0.6)'
+                }}>
+                    <div className="modal" style={{
+                        maxWidth: '480px',
+                        borderRadius: '1.5rem',
+                        overflow: 'hidden',
+                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                        animation: 'modalFadeIn 0.3s cubic-bezier(0.165, 0.84, 0.44, 1)'
+                    }}>
                         {!receiptData ? (
                             <>
-                                <div className="modal-header">
-                                    <h3 className="modal-title">Registrar Cobro</h3>
-                                    <button onClick={closeTargetClient} className="btn-close">×</button>
+                                <div className="modal-header" style={{
+                                    padding: '1.5rem 2rem',
+                                    borderBottom: '1px solid #f3f4f6',
+                                    background: '#ffffff'
+                                }}>
+                                    <div>
+                                        <h3 className="modal-title" style={{ fontSize: '1.25rem', fontWeight: 700 }}>Registrar Cobro</h3>
+                                        <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>Gestión de cobranza MIRAMAX</p>
+                                    </div>
+                                    <button onClick={closeTargetClient} className="btn-close" style={{ fontSize: '1.5rem' }}>✕</button>
                                 </div>
-                                <div className="modal-body">
-                                    <p><strong>Cliente:</strong> {selectedClient.full_name}</p>
-                                    <p><strong>Total a Pagar:</strong> S/ {clientDebts.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2)}</p>
+                                <div className="modal-body" style={{ padding: '1.5rem 2rem' }}>
+                                    <div style={{
+                                        backgroundColor: '#f9fafb',
+                                        padding: '1rem',
+                                        borderRadius: '1rem',
+                                        marginBottom: '1.5rem',
+                                        border: '1px solid #f3f4f6'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                            <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>Cliente:</span>
+                                            <span style={{ fontWeight: 600 }}>{selectedClient.full_name}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>Total a Pagar:</span>
+                                            <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '1.1rem' }}>
+                                                S/ {clientDebts.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2)}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                                    <div style={{ marginTop: '1rem' }}>
-                                        <label className="form-label">Método de Pago</label>
-                                        <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <label className="form-label" style={{ fontWeight: 600, marginBottom: '0.75rem', display: 'block' }}>
+                                            Método de Pago
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '0.75rem' }}>
                                             <button
-                                                className={`btn ${paymentMethod === 'cash' ? 'btn-primary' : 'btn-outline'}`}
+                                                className={`btn`}
                                                 onClick={() => setPaymentMethod('cash')}
-                                                style={{ flex: 1 }}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '0.75rem',
+                                                    borderRadius: '0.75rem',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    gap: '0.5rem',
+                                                    border: paymentMethod === 'cash' ? '2px solid var(--primary)' : '2px solid #e5e7eb',
+                                                    backgroundColor: paymentMethod === 'cash' ? '#fff5f0' : 'white',
+                                                    color: paymentMethod === 'cash' ? 'var(--primary)' : '#6b7280',
+                                                    transition: 'all 0.2s',
+                                                    fontWeight: 600
+                                                }}
                                             >
-                                                💵 Efectivo
+                                                <span style={{ fontSize: '1.5rem' }}>💵</span>
+                                                Efectivo
                                             </button>
                                             <button
-                                                className={`btn ${paymentMethod === 'yape' ? 'btn-primary' : 'btn-outline'}`}
+                                                className={`btn`}
                                                 onClick={() => setPaymentMethod('yape')}
-                                                style={{ flex: 1, backgroundColor: paymentMethod === 'yape' ? '#742284' : '' }}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '0.75rem',
+                                                    borderRadius: '0.75rem',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    gap: '0.5rem',
+                                                    border: paymentMethod === 'yape' ? '2px solid #742284' : '2px solid #e5e7eb',
+                                                    backgroundColor: paymentMethod === 'yape' ? '#f5e8f7' : 'white',
+                                                    color: paymentMethod === 'yape' ? '#742284' : '#6b7280',
+                                                    transition: 'all 0.2s',
+                                                    fontWeight: 600
+                                                }}
                                             >
-                                                📱 Yape
+                                                <span style={{ fontSize: '1.5rem' }}>📱</span>
+                                                Yape
                                             </button>
                                         </div>
                                     </div>
 
+                                    <div style={{ fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem' }}>Detalle de Meses:</div>
                                     {clientDebts.length > 0 ? (
-                                        <div style={{ marginTop: '1rem', maxHeight: '200px', overflowY: 'auto', background: '#f9f9f9', padding: '0.5rem' }}>
+                                        <div style={{
+                                            maxHeight: '160px',
+                                            overflowY: 'auto',
+                                            background: '#ffffff',
+                                            padding: '0.5rem',
+                                            borderRadius: '0.75rem',
+                                            border: '1px solid #f3f4f6'
+                                        }}>
                                             {clientDebts.map(debt => (
-                                                <div key={debt.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', borderBottom: '1px solid #eee' }}>
-                                                    <span>{debt.month} {debt.year}</span>
-                                                    <strong>S/ {parseFloat(debt.amount).toFixed(2)}</strong>
+                                                <div key={debt.id} style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    padding: '0.75rem',
+                                                    borderBottom: '1px solid #f9fafb',
+                                                    fontSize: '0.9rem'
+                                                }}>
+                                                    <span style={{ color: '#374151' }}>{debt.month} {debt.year}</span>
+                                                    <strong style={{ color: '#111827' }}>S/ {parseFloat(debt.amount).toFixed(2)}</strong>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <p style={{ textAlign: 'center', marginTop: '1rem' }}>Cargando deudas...</p>
+                                        <div style={{ textAlign: 'center', padding: '1rem', color: '#9ca3af' }}>
+                                            <div className="spinner-mini" style={{ margin: '0 auto 0.5rem' }}></div>
+                                            Cargando deudas...
+                                        </div>
                                     )}
                                 </div>
-                                <div className="modal-footer">
-                                    <button onClick={closeTargetClient} className="btn btn-text">Cancelar</button>
+                                <div className="modal-footer" style={{
+                                    padding: '1.25rem 2rem',
+                                    background: '#f9fafb',
+                                    borderTop: '1px solid #f3f4f6',
+                                    gap: '1rem'
+                                }}>
+                                    <button onClick={closeTargetClient} className="btn" style={{
+                                        color: '#6b7280',
+                                        fontWeight: 600,
+                                        fontSize: '0.95rem'
+                                    }}>Cancelar</button>
                                     <button
                                         onClick={handleRegisterPayment}
                                         className="btn btn-primary"
                                         disabled={processing || clientDebts.length === 0}
+                                        style={{
+                                            flex: 1,
+                                            padding: '0.85rem',
+                                            borderRadius: '0.75rem',
+                                            fontWeight: 700,
+                                            boxShadow: '0 4px 12px rgba(255,102,0,0.2)'
+                                        }}
                                     >
                                         {processing ? 'Registrando...' : 'Confirmar Pago'}
                                     </button>
@@ -364,38 +459,109 @@ export default function CollectorDashboard() {
                             </>
                         ) : (
                             <>
-                                <div className="modal-header" style={{ justifyContent: 'center', border: 'none', paddingBottom: 0 }}>
-                                    <div style={{ fontSize: '3rem' }}>✅</div>
-                                </div>
-                                <div className="modal-body" style={{ textAlign: 'center' }}>
-                                    <h3 style={{ marginBottom: '1rem' }}>¡Cobro Exitoso!</h3>
-                                    <div className="card" style={{ background: '#f8f9fa', padding: '1.5rem', marginBottom: '1rem' }}>
-                                        <p style={{ fontSize: '0.9rem', color: '#666' }}>Monto Cobrado</p>
-                                        <p style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#28a745', margin: '0.5rem 0' }}>
+                                <div className="modal-body" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+                                    <div style={{
+                                        width: '80px',
+                                        height: '80px',
+                                        backgroundColor: '#def7ec',
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        margin: '0 auto 1.5rem',
+                                        fontSize: '2.5rem',
+                                        color: '#0e9f6e'
+                                    }}>
+                                        ✓
+                                    </div>
+                                    <h3 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827', marginBottom: '0.5rem' }}>
+                                        ¡Cobro Exitoso!
+                                    </h3>
+                                    <p style={{ color: '#6b7280', marginBottom: '2rem' }}>El pago ha sido registrado correctamente en el sistema.</p>
+
+                                    <div style={{
+                                        background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
+                                        padding: '1.5rem',
+                                        borderRadius: '1rem',
+                                        marginBottom: '2rem',
+                                        border: '1px solid #e5e7eb',
+                                        position: 'relative'
+                                    }}>
+                                        <p style={{ fontSize: '0.85rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Monto Cobrado</p>
+                                        <p style={{ fontSize: '2.5rem', fontWeight: 800, color: '#046c4e', margin: '0' }}>
                                             S/ {receiptData.amount.toFixed(2)}
                                         </p>
-                                        <p style={{ marginBottom: 0 }}>{paymentMethod === 'cash' ? '💵 Efectivo' : '📱 Yape'}</p>
-                                        <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '1rem' }}>
-                                            Op: #{receiptData.paymentId} | {receiptData.date}
-                                        </p>
+                                        <div style={{
+                                            display: 'inline-block',
+                                            padding: '0.25rem 0.75rem',
+                                            backgroundColor: 'white',
+                                            borderRadius: '2rem',
+                                            fontSize: '0.8rem',
+                                            color: '#374151',
+                                            fontWeight: 600,
+                                            marginTop: '0.5rem',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                        }}>
+                                            {paymentMethod === 'cash' ? '💵 Efectivo' : '📱 Yape'}
+                                        </div>
                                     </div>
 
                                     <button
                                         onClick={handleWhatsAppReceipt}
-                                        className="btn btn-success"
-                                        style={{ width: '100%', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                                        className="btn"
+                                        style={{
+                                            width: '100%',
+                                            marginBottom: '1rem',
+                                            padding: '1rem',
+                                            borderRadius: '0.75rem',
+                                            backgroundColor: '#25D366',
+                                            color: 'white',
+                                            fontWeight: 700,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '0.75rem',
+                                            transition: 'transform 0.2s',
+                                            boxShadow: '0 4px 12px rgba(37,211,102,0.2)'
+                                        }}
+                                        onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                        onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                                     >
-                                        📲 Enviar Comprobante por WhatsApp
+                                        <span style={{ fontSize: '1.25rem' }}>📲</span> Enviar Comprobante
                                     </button>
-                                </div>
-                                <div className="modal-footer" style={{ justifyContent: 'center', border: 'none' }}>
-                                    <button onClick={closeTargetClient} className="btn btn-outline">Cerrar</button>
+
+                                    <button onClick={closeTargetClient} className="btn" style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        color: '#6b7280',
+                                        fontWeight: 600
+                                    }}>
+                                        Finalizar
+                                    </button>
                                 </div>
                             </>
                         )}
                     </div>
                 </div>
             )}
+            <style>{`
+                @keyframes modalFadeIn {
+                    from { opacity: 0; transform: scale(0.95) translateY(20px); }
+                    to { opacity: 1; transform: scale(1) translateY(0); }
+                }
+                .spinner-mini {
+                    width: 20px;
+                    height: 20px;
+                    border: 2px solid #f3f3f3;
+                    border-top: 2px solid var(--primary);
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 }
