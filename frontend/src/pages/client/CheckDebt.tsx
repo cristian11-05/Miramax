@@ -143,29 +143,6 @@ export default function CheckDebt() {
                     </>
                 )}
 
-                {/* Always show WhatsApp button for Clients/Public */}
-                <div style={{
-                    marginTop: 'var(--spacing-6)',
-                    textAlign: 'center'
-                }}>
-                    <a
-                        href="https://wa.me/51918762620?text=Hola,%20vengo%20de%20la%20web%20y%20necesito%20ayuda%20con%20mi%20deuda"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn"
-                        style={{
-                            backgroundColor: '#25D366',
-                            color: 'white',
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '10px'
-                        }}
-                    >
-                        <span>💬</span> Ayuda por WhatsApp
-                    </a>
-                </div>
             </div>
 
             {/* Footer */}
