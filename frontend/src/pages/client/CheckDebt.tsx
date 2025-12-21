@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import SupportChatbot from '../../components/SupportChatbot';
+
 
 export default function CheckDebt() {
     const [dni, setDni] = useState('');
@@ -182,6 +184,8 @@ export default function CheckDebt() {
                     © 2024 MIRAMAX Internet - Servicio al Cliente
                 </p>
             </div>
+            <SupportChatbot />
         </div>
     );
 }
+

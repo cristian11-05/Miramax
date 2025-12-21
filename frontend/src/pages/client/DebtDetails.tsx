@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import SupportChatbot from '../../components/SupportChatbot';
 
 interface ClientData {
     client: {
@@ -202,7 +203,13 @@ export default function DebtDetails() {
                         )}
                     </div>
                 </div>
+                <SupportChatbot
+                    clientName={data.client.fullName}
+                    serviceData={{ plan: data.client.plan, status: data.client.serviceStatus }}
+                />
             </div>
         </div>
     );
 }
+
+
