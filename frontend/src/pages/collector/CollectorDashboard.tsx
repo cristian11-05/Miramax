@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import html2canvas from 'html2canvas';
 import api from '../../services/api';
 
 interface Client {
@@ -24,6 +25,7 @@ export default function CollectorDashboard() {
     const [clients, setClients] = useState<Client[]>([]);
     const [stats, setStats] = useState({ todayTotal: '0', monthTotal: '0', todayVisits: 0 });
     const [loading, setLoading] = useState(true);
+    const receiptRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const userData = localStorage.getItem('user');
@@ -115,6 +117,29 @@ export default function CollectorDashboard() {
             alert(error.response?.data?.error || 'Error al registrar cobro');
         } finally {
             setProcessing(false);
+        }
+    };
+
+    const handleDownloadReceipt = async () => {
+        if (!receiptRef.current) return;
+
+        try {
+            // Give a small delay to ensure everything is rendered
+            const canvas = await html2canvas(receiptRef.current, {
+                scale: 2, // Higher quality
+                backgroundColor: '#ffffff',
+                logging: false,
+                useCORS: true
+            });
+
+            const image = canvas.toDataURL("image/png");
+            const link = document.createElement('a');
+            link.href = image;
+            link.download = `Recibo_MIRAMAX_${receiptData?.paymentId || '0'}.png`;
+            link.click();
+        } catch (err) {
+            console.error('Error generating receipt image:', err);
+            alert('Error al generar la imagen del recibo');
         }
     };
 
@@ -459,85 +484,132 @@ export default function CollectorDashboard() {
                             </>
                         ) : (
                             <>
-                                <div className="modal-body" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+                                <div className="modal-body" style={{ textAlign: 'center', padding: '2rem' }}>
                                     <div style={{
-                                        width: '80px',
-                                        height: '80px',
+                                        width: '60px',
+                                        height: '60px',
                                         backgroundColor: '#def7ec',
                                         borderRadius: '50%',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        margin: '0 auto 1.5rem',
-                                        fontSize: '2.5rem',
+                                        margin: '0 auto 1rem',
+                                        fontSize: '2rem',
                                         color: '#0e9f6e'
                                     }}>
                                         ✓
                                     </div>
-                                    <h3 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827', marginBottom: '0.5rem' }}>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827', marginBottom: '1.5rem' }}>
                                         ¡Cobro Exitoso!
                                     </h3>
-                                    <p style={{ color: '#6b7280', marginBottom: '2rem' }}>El pago ha sido registrado correctamente en el sistema.</p>
 
-                                    <div style={{
-                                        background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
-                                        padding: '1.5rem',
-                                        borderRadius: '1rem',
-                                        marginBottom: '2rem',
-                                        border: '1px solid #e5e7eb',
-                                        position: 'relative'
+                                    {/* Printable Receipt Card */}
+                                    <div ref={receiptRef} style={{
+                                        backgroundColor: '#ffffff',
+                                        padding: '2rem',
+                                        borderRadius: '0.5rem',
+                                        border: '1px dashed #d1d5db',
+                                        textAlign: 'left',
+                                        marginBottom: '1.5rem',
+                                        fontFamily: 'monospace',
+                                        color: '#000',
+                                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
                                     }}>
-                                        <p style={{ fontSize: '0.85rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Monto Cobrado</p>
-                                        <p style={{ fontSize: '2.5rem', fontWeight: 800, color: '#046c4e', margin: '0' }}>
-                                            S/ {receiptData.amount.toFixed(2)}
-                                        </p>
-                                        <div style={{
-                                            display: 'inline-block',
-                                            padding: '0.25rem 0.75rem',
-                                            backgroundColor: 'white',
-                                            borderRadius: '2rem',
-                                            fontSize: '0.8rem',
-                                            color: '#374151',
-                                            fontWeight: 600,
-                                            marginTop: '0.5rem',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                                        }}>
-                                            {paymentMethod === 'cash' ? '💵 Efectivo' : '📱 Yape'}
+                                        <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                                            <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>MIRAMAX INTERNET</h4>
+                                            <p style={{ margin: 0, fontSize: '0.7rem', color: '#6b7280' }}>Conectando tu mundo</p>
+                                        </div>
+
+                                        <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '1rem 0' }}></div>
+
+                                        <div style={{ fontSize: '0.85rem', lineHeight: '1.6' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>FECHA:</span>
+                                                <span style={{ fontWeight: 700 }}>{receiptData.date}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>RECIBO #:</span>
+                                                <span style={{ fontWeight: 700 }}>{receiptData.paymentId}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                                <span>COBRADOR:</span>
+                                                <span style={{ fontWeight: 700 }}>{receiptData.collectorName}</span>
+                                            </div>
+
+                                            <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '0.5rem 0' }}></div>
+
+                                            <div style={{ marginBottom: '0.5rem' }}>
+                                                <span>CLIENTE:</span>
+                                                <div style={{ fontWeight: 700 }}>{receiptData.clientName}</div>
+                                            </div>
+
+                                            <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '0.5rem 0' }}></div>
+
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', marginTop: '0.5rem' }}>
+                                                <span>TOTAL PAGADO:</span>
+                                                <span style={{ fontWeight: 900 }}>S/ {receiptData.amount.toFixed(2)}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                                                <span>MÉTODO:</span>
+                                                <span>{paymentMethod === 'cash' ? 'EFECTIVO' : 'YAPE'}</span>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '1rem 0' }}></div>
+
+                                        <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#6b7280' }}>
+                                            ¡Gracias por su preferencia!
                                         </div>
                                     </div>
 
-                                    <button
-                                        onClick={handleWhatsAppReceipt}
-                                        className="btn"
-                                        style={{
-                                            width: '100%',
-                                            marginBottom: '1rem',
-                                            padding: '1rem',
-                                            borderRadius: '0.75rem',
-                                            backgroundColor: '#25D366',
-                                            color: 'white',
-                                            fontWeight: 700,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '0.75rem',
-                                            transition: 'transform 0.2s',
-                                            boxShadow: '0 4px 12px rgba(37,211,102,0.2)'
-                                        }}
-                                        onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                        onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                                    >
-                                        <span style={{ fontSize: '1.25rem' }}>📲</span> Enviar Comprobante
-                                    </button>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        <button
+                                            onClick={handleWhatsAppReceipt}
+                                            className="btn"
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.85rem',
+                                                borderRadius: '0.75rem',
+                                                backgroundColor: '#25D366',
+                                                color: 'white',
+                                                fontWeight: 700,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '0.5rem'
+                                            }}
+                                        >
+                                            📲 Enviar a WhatsApp
+                                        </button>
 
-                                    <button onClick={closeTargetClient} className="btn" style={{
-                                        width: '100%',
-                                        padding: '0.75rem',
-                                        color: '#6b7280',
-                                        fontWeight: 600
-                                    }}>
-                                        Finalizar
-                                    </button>
+                                        <button
+                                            onClick={handleDownloadReceipt}
+                                            className="btn"
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.85rem',
+                                                borderRadius: '0.75rem',
+                                                backgroundColor: '#3b82f6',
+                                                color: 'white',
+                                                fontWeight: 700,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '0.5rem'
+                                            }}
+                                        >
+                                            🖼️ Descargar Imagen
+                                        </button>
+
+                                        <button onClick={closeTargetClient} className="btn" style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            color: '#6b7280',
+                                            fontWeight: 600
+                                        }}>
+                                            Finalizar
+                                        </button>
+                                    </div>
                                 </div>
                             </>
                         )}
