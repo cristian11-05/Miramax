@@ -288,38 +288,50 @@ export const deleteCollector = async (req, res) => {
 export const assignCollectorToLocations = async (req, res) => {
     try {
         const { id } = req.params; // Collector ID
-        const { district, caserios } = req.body; // { district: "Mache", caserios: ["Lluin", "Campo Bello"] }
+        const { locations, summary } = req.body; // locations: [ { district, caserios: [] }, ... ], summary: "Mache, Otuzco"
 
-        if (!id || !district || !caserios || !Array.isArray(caserios)) {
-            return res.status(400).json({ error: 'Datos incompletos.' });
+        if (!id || !locations || !Array.isArray(locations)) {
+            // Check for backward compatibility if needed, but we'll use new format
+            const { district, caserios } = req.body;
+            if (!district || !caserios) {
+                return res.status(400).json({ error: 'Datos incompletos.' });
+            }
+            // Logic for single district (existing)
+            const placeholders = caserios.map(() => '?').join(',');
+            const sql = `UPDATE clients SET collector_id = ? WHERE district = ? AND caserio IN (${placeholders})`;
+            const params = [id, district, ...caserios];
+            await query(sql, params);
+            return res.json({ success: true, message: 'Ruta asignada exitosamente.' });
         }
 
-        if (caserios.length === 0) {
-            return res.json({ success: true, message: 'No se seleccionaron caseríos.' });
+        if (locations.length === 0) {
+            return res.json({ success: true, message: 'No se seleccionaron ubicaciones.' });
         }
 
-        // Construir placeholders para IN clause
-        const placeholders = caserios.map(() => '?').join(',');
+        // We can do this in a transaction or sequential queries
+        // Let's go sequential for simplicity in this dev environment
+        let totalAffected = 0;
 
-        // Actualizar clientes que coincidan con distrito y caseríos
-        // IMPORTANTE: Se actualiza el campo 'zone' para reflejar la ruta y el 'collector_id'
-        // Asumimos que region/provincia son implícitos o únicos por distrito en este contexto local, 
-        // pero para mayor seguridad podríamos recibirlos también.
+        for (const loc of locations) {
+            const { district, caserios } = loc;
+            if (!district || !caserios || !Array.isArray(caserios) || caserios.length === 0) continue;
 
-        const sql = `
-            UPDATE clients 
-            SET collector_id = ?
-            WHERE district = ? AND caserio IN (${placeholders})
-        `;
+            const placeholders = caserios.map(() => '?').join(',');
+            const sql = `UPDATE clients SET collector_id = ? WHERE district = ? AND caserio IN (${placeholders})`;
+            const params = [id, district, ...caserios];
+            const result = await query(sql, params);
+            totalAffected += result.rows.affectedRows || 0;
+        }
 
-        const params = [id, district, ...caserios];
-
-        const result = await query(sql, params);
+        // Optionally update the collector's zone text summary
+        if (summary) {
+            await query('UPDATE collectors SET zone = ? WHERE id = ?', [summary, id]);
+        }
 
         res.json({
             success: true,
-            message: `Se asignaron ${result.rows.affectedRows} clientes de ${caserios.length} caseríos al cobrador.`,
-            affected: result.rows.affectedRows
+            message: `Se asignaron ${totalAffected} clientes de múltiples zonas al cobrador.`,
+            affected: totalAffected
         });
 
     } catch (error) {

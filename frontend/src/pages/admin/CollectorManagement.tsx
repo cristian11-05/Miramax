@@ -166,9 +166,15 @@ export default function CollectorManagement() {
                                             <div className="text-xs text-gray-500">@{collector.username}</div>
                                             <div className="text-xs text-gray-500">DNI: {collector.dni}</div>
                                         </td>
-                                        <td>
+                                        <td style={{ maxWidth: '200px' }}>
                                             {collector.zone ? (
-                                                <span className="badge badge-info">{collector.zone}</span>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                    {collector.zone.split(', ').map((z, idx) => (
+                                                        <span key={idx} className="badge badge-info" style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>
+                                                            {z}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             ) : (
                                                 <span className="text-gray-400">- Sin Zona -</span>
                                             )}
