@@ -141,17 +141,24 @@ export const createClient = async (req, res) => {
 
         const clientId = insertMeta.insertId || insertMeta.rows.insertId;
 
-        // --- Generar Deuda del Mes (Opcional pero solicitado para pruebas) ---
-        const currentDate = new Date();
+        // --- Generar Deuda del Mes anterior (Post-pago) ---
+        // Si estamos en enero 2026, la deuda es de diciembre 2025, vence 7 de enero
+        const now = new Date();
+        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        const currentMonthName = months[currentDate.getMonth()];
+
+        const prevMonthName = months[prevMonthDate.getMonth()];
+        const prevMonthYear = prevMonthDate.getFullYear();
+
+        // La fecha de vencimiento es el 7 del mes ACTUAL (mes de cobranza)
+        const dueDate = new Date(now.getFullYear(), now.getMonth(), 7);
 
         await query(`
             INSERT INTO debts (client_id, month, year, amount, status, due_date)
-            VALUES (?, ?, ?, ?, 'pending', DATE_ADD(CURRENT_DATE, INTERVAL 5 DAY))
-        `, [clientId, currentMonthName, currentDate.getFullYear(), cost]);
+            VALUES (?, ?, ?, ?, 'pending', ?)
+        `, [clientId, prevMonthName, prevMonthYear, cost, dueDate]);
 
-        res.json({ success: true, message: 'Cliente creado exitosamente (con deuda inicial generada).' });
+        res.json({ success: true, message: 'Cliente creado exitosamente (con deuda del mes anterior generada).' });
     } catch (error) {
         console.error('Error al crear cliente:', error);
         if (error.code === 'ER_DUP_ENTRY') {
@@ -355,13 +362,32 @@ export const getAllDebts = async (req, res) => {
 export const createDebt = async (req, res) => {
     try {
         const { clientId, month, year, amount, dueDate } = req.body;
-        if (!clientId || !month || !year || !amount) {
+        if (!clientId || !amount) {
             return res.status(400).json({ error: 'Faltan datos obligatorios.' });
+        }
+
+        // Si no vienen mes/año, calculamos el anterior por defecto
+        let finalMonth = month;
+        let finalYear = year;
+        let finalDueDate = dueDate;
+
+        if (!month || !year) {
+            const now = new Date();
+            const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const monthsNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            finalMonth = monthsNames[prevMonthDate.getMonth()];
+            finalYear = prevMonthDate.getFullYear();
+
+            if (!dueDate) {
+                // El 7 del mes actual
+                const dDate = new Date(now.getFullYear(), now.getMonth(), 7);
+                finalDueDate = dDate.toISOString().split('T')[0];
+            }
         }
 
         await query(
             'INSERT INTO debts (client_id, month, year, amount, status, due_date) VALUES (?, ?, ?, ?, ?, ?)',
-            [clientId, month, year, amount, 'pending', dueDate || null]
+            [clientId, finalMonth, finalYear, amount, 'pending', finalDueDate || null]
         );
 
         res.json({ success: true, message: 'Deuda creada correctamente.' });

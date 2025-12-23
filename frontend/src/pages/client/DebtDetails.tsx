@@ -159,16 +159,27 @@ export default function DebtDetails() {
                                     <table className="table">
                                         <thead>
                                             <tr>
-                                                <th>Mes</th>
-                                                <th>Año</th>
+                                                <th>Mes de Servicio</th>
+                                                <th>Fecha de Pago</th>
                                                 <th>Monto</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {data.pendingDebts.map((debt) => (
                                                 <tr key={debt.id}>
-                                                    <td>{debt.month}</td>
-                                                    <td>{debt.year}</td>
+                                                    <td>
+                                                        <div style={{ fontWeight: 600 }}>{debt.month} {debt.year}</div>
+                                                        <div style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Servicio prestado</div>
+                                                    </td>
+                                                    <td>
+                                                        <div style={{
+                                                            color: new Date(debt.dueDate) < new Date() ? 'var(--error)' : 'var(--gray-700)',
+                                                            fontWeight: 600
+                                                        }}>
+                                                            {new Date(debt.dueDate).toLocaleDateString('es-PE', { day: '2-digit', month: 'long' })}
+                                                        </div>
+                                                        <div style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Vence el día 7</div>
+                                                    </td>
                                                     <td style={styles.debtAmount}>
                                                         S/ {debt.amount}
                                                     </td>
