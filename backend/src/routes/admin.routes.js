@@ -22,7 +22,10 @@ import {
     getDashboardStats,
     getPendingVerifications,
     rejectPayment,
-    downloadReceipt
+    getPendingVerifications,
+    rejectPayment,
+    downloadReceipt,
+    assignCollectorToLocations
 } from '../controllers/admin.controller.js';
 import { authenticateToken, authorizeRole } from '../middlewares/auth.middleware.js';
 import { upload } from '../services/upload.service.js';
@@ -49,6 +52,7 @@ router.delete('/clients/:id', requireAdmin, deleteClient);
 router.get('/collectors', requireAuth, getAllCollectors);
 router.post('/collectors', requireAdmin, createCollector);
 router.put('/collectors/:id', requireAdmin, updateCollector);
+router.post('/collectors/:id/assign-locations', requireAdmin, assignCollectorToLocations); // Nueva ruta
 router.delete('/collectors/:id', requireAdmin, deleteCollector);
 
 // ========== DEUDAS ==========

@@ -21,6 +21,39 @@ interface ClientData {
     lastPayment: string | null;
 }
 
+const styles = {
+    wrapper: { minHeight: '100vh', backgroundColor: 'var(--gray-50)', padding: 'var(--spacing-6)' },
+    container: { maxWidth: '900px' },
+    header: { marginBottom: 'var(--spacing-6)' },
+    infoGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+        gap: 'var(--spacing-4)',
+        marginBottom: 'var(--spacing-6)'
+    },
+    label: { fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-1)' },
+    value: { fontWeight: 600 },
+    debtCard: (isDebt: boolean) => ({
+        background: isDebt ? '#FEE2E2' : '#D1FAE5',
+        border: `3px solid ${isDebt ? 'var(--error)' : 'var(--success)'}`,
+        borderRadius: 'var(--radius-lg)',
+        padding: 'var(--spacing-6)',
+        textAlign: 'center' as const,
+        marginBottom: 'var(--spacing-6)'
+    }),
+    debtLabel: { fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-2)' },
+    debtValue: (isDebt: boolean) => ({
+        fontSize: 'var(--font-size-4xl)',
+        fontWeight: 700,
+        color: isDebt ? 'var(--error)' : 'var(--success)'
+    }),
+    tableTitle: { marginBottom: 'var(--spacing-4)' },
+    tableWrapper: { overflowX: 'auto' as const },
+    debtAmount: { fontWeight: 600, color: 'var(--error)' },
+    actions: { marginTop: 'var(--spacing-6)', display: 'flex', gap: 'var(--spacing-4)', flexWrap: 'wrap' as const },
+    actionBtn: { flex: 1 }
+};
+
 export default function DebtDetails() {
     const { dni } = useParams<{ dni: string }>();
     const navigate = useNavigate();
@@ -31,15 +64,16 @@ export default function DebtDetails() {
         if (cachedData) {
             setData(JSON.parse(cachedData));
         } else {
-            // Si no hay datos, redirigir a la consulta
             navigate('/consulta');
         }
     }, [navigate]);
 
     if (!data) {
-        return <div className="container" style={{ paddingTop: '3rem', textAlign: 'center' }}>
-            <div className="spinner" style={{ margin: '0 auto' }} />
-        </div>;
+        return (
+            <div className="container" style={{ paddingTop: '3rem', textAlign: 'center' }}>
+                <div className="spinner" style={{ margin: '0 auto' }} />
+            </div>
+        );
     }
 
     const serviceStatusColors: Record<string, string> = {
@@ -49,11 +83,12 @@ export default function DebtDetails() {
         reconnecting: 'info',
     };
 
+    const isDebt = parseFloat(data.totalDebt) > 0;
+
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: 'var(--gray-50)', padding: 'var(--spacing-6)' }}>
-            <div className="container" style={{ maxWidth: '900px' }}>
-                {/* Header */}
-                <div style={{ marginBottom: 'var(--spacing-6)' }}>
+        <div style={styles.wrapper}>
+            <div className="container" style={styles.container}>
+                <div style={styles.header}>
                     <button
                         onClick={() => navigate('/consulta')}
                         className="btn btn-outline"
@@ -62,60 +97,39 @@ export default function DebtDetails() {
                     </button>
                 </div>
 
-                {/* Card Principal */}
                 <div className="card">
                     <div className="card-header">
                         <h2 className="card-title">Información de Cliente</h2>
                     </div>
 
                     <div className="card-body">
-                        {/* Datos del Cliente */}
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                            gap: 'var(--spacing-4)',
-                            marginBottom: 'var(--spacing-6)'
-                        }}>
+                        <div style={styles.infoGrid}>
                             <div>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-1)' }}>
-                                    Nombre Completo
-                                </p>
-                                <p style={{ fontWeight: 600 }}>{data.client.fullName}</p>
+                                <p style={styles.label}>Nombre Completo</p>
+                                <p style={styles.value}>{data.client.fullName}</p>
                             </div>
                             <div>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-1)' }}>
-                                    DNI
-                                </p>
-                                <p style={{ fontWeight: 600 }}>{dni}</p>
+                                <p style={styles.label}>DNI</p>
+                                <p style={styles.value}>{dni}</p>
                             </div>
                             <div>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-1)' }}>
-                                    Dirección
-                                </p>
-                                <p style={{ fontWeight: 600 }}>{data.client.address || '-'}</p>
+                                <p style={styles.label}>Dirección</p>
+                                <p style={styles.value}>{data.client.address || '-'}</p>
                             </div>
                             <div>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-1)' }}>
-                                    Caserío/Zona
-                                </p>
-                                <p style={{ fontWeight: 600 }}>{data.client.caserio || '-'}</p>
+                                <p style={styles.label}>Caserío/Zona</p>
+                                <p style={styles.value}>{data.client.caserio || '-'}</p>
                             </div>
                             <div>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-1)' }}>
-                                    N° Contrato
-                                </p>
-                                <p style={{ fontWeight: 600 }}>{data.client.contractNumber || '-'}</p>
+                                <p style={styles.label}>N° Contrato</p>
+                                <p style={styles.value}>{data.client.contractNumber || '-'}</p>
                             </div>
                             <div>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-1)' }}>
-                                    Plan
-                                </p>
-                                <p style={{ fontWeight: 600 }}>{data.client.plan || '-'}</p>
+                                <p style={styles.label}>Plan</p>
+                                <p style={styles.value}>{data.client.plan || '-'}</p>
                             </div>
                             <div>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-1)' }}>
-                                    Estado del Servicio
-                                </p>
+                                <p style={styles.label}>Estado del Servicio</p>
                                 <span className={`badge badge-${serviceStatusColors[data.client.serviceStatus] || 'info'}`}>
                                     {data.client.serviceStatus === 'active' && 'Activo'}
                                     {data.client.serviceStatus === 'suspended' && 'Suspendido'}
@@ -124,41 +138,24 @@ export default function DebtDetails() {
                                 </span>
                             </div>
                             <div>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-1)' }}>
-                                    Último Pago
-                                </p>
-                                <p style={{ fontWeight: 600 }}>
+                                <p style={styles.label}>Último Pago</p>
+                                <p style={styles.value}>
                                     {data.lastPayment ? new Date(data.lastPayment).toLocaleDateString('es-PE') : 'Sin pagos'}
                                 </p>
                             </div>
                         </div>
 
-                        {/* Deuda Total */}
-                        <div style={{
-                            background: parseFloat(data.totalDebt) > 0 ? '#FEE2E2' : '#D1FAE5',
-                            border: `3px solid ${parseFloat(data.totalDebt) > 0 ? 'var(--error)' : 'var(--success)'}`,
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-6)',
-                            textAlign: 'center',
-                            marginBottom: 'var(--spacing-6)'
-                        }}>
-                            <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-2)' }}>
-                                Deuda Total
-                            </p>
-                            <p style={{
-                                fontSize: 'var(--font-size-4xl)',
-                                fontWeight: 700,
-                                color: parseFloat(data.totalDebt) > 0 ? 'var(--error)' : 'var(--success)'
-                            }}>
+                        <div style={styles.debtCard(isDebt)}>
+                            <p style={styles.debtLabel}>Deuda Total</p>
+                            <p style={styles.debtValue(isDebt)}>
                                 S/ {data.totalDebt}
                             </p>
                         </div>
 
-                        {/* Detalles de Meses Pendientes */}
                         {data.pendingDebts && data.pendingDebts.length > 0 && (
                             <div>
-                                <h3 style={{ marginBottom: 'var(--spacing-4)' }}>Meses Pendientes</h3>
-                                <div style={{ overflowX: 'auto' }}>
+                                <h3 style={styles.tableTitle}>Meses Pendientes</h3>
+                                <div style={styles.tableWrapper}>
                                     <table className="table">
                                         <thead>
                                             <tr>
@@ -172,7 +169,7 @@ export default function DebtDetails() {
                                                 <tr key={debt.id}>
                                                     <td>{debt.month}</td>
                                                     <td>{debt.year}</td>
-                                                    <td style={{ fontWeight: 600, color: 'var(--error)' }}>
+                                                    <td style={styles.debtAmount}>
                                                         S/ {debt.amount}
                                                     </td>
                                                 </tr>
@@ -183,20 +180,19 @@ export default function DebtDetails() {
                             </div>
                         )}
 
-                        {/* Botones de Acción */}
-                        {parseFloat(data.totalDebt) > 0 && (
-                            <div style={{ marginTop: 'var(--spacing-6)', display: 'flex', gap: 'var(--spacing-4)', flexWrap: 'wrap' }}>
+                        {isDebt && (
+                            <div style={styles.actions}>
                                 <button
                                     onClick={() => navigate(`/pago/yape/${dni}`)}
                                     className="btn btn-primary btn-lg"
-                                    style={{ flex: 1 }}
+                                    style={styles.actionBtn}
                                 >
                                     💳 Pagar con Yape
                                 </button>
                             </div>
                         )}
 
-                        {parseFloat(data.totalDebt) === 0 && (
+                        {!isDebt && (
                             <div className="alert alert-success">
                                 ✅ ¡Felicidades! No tienes deudas pendientes.
                             </div>
@@ -211,5 +207,3 @@ export default function DebtDetails() {
         </div>
     );
 }
-
-

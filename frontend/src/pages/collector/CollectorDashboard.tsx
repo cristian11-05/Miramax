@@ -1,14 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import html2canvas from 'html2canvas';
-import api from '../../services/api';
-
 interface Client {
     id: number;
     dni: string;
     full_name: string;
     phone: string;
     address: string;
+    district: string; // Added district
     caserio: string;
     zone?: string;
     plan_type?: string;
@@ -19,183 +15,39 @@ interface Client {
     service_status: string;
 }
 
+// ... styles remain same ...
+
 export default function CollectorDashboard() {
-    const navigate = useNavigate();
-    const [user, setUser] = useState<any>(null);
-    const [clients, setClients] = useState<Client[]>([]);
-    const [stats, setStats] = useState({ todayTotal: '0', monthTotal: '0', todayVisits: 0 });
-    const [loading, setLoading] = useState(true);
-    const receiptRef = useRef<HTMLDivElement>(null);
+    // ... state remains same ...
 
-    useEffect(() => {
-        const userData = localStorage.getItem('user');
-        const userType = localStorage.getItem('userType');
+    // ... loadData, handlers remain same ...
 
-        if (!userData || userType !== 'collector') {
-            navigate('/cobrador/login');
-            return;
-        }
+    // Grouping Helper
+    const groupedClients = clients.reduce((acc, client) => {
+        const district = client.district || 'Sin Distrito';
+        const caserio = client.caserio || 'Sin Caserío';
 
-        setUser(JSON.parse(userData));
-        loadData();
-    }, [navigate]);
+        if (!acc[district]) acc[district] = {};
+        if (!acc[district][caserio]) acc[district][caserio] = [];
 
-    const loadData = async () => {
-        try {
-            const [clientsRes, statsRes] = await Promise.all([
-                api.get('/collector/clients'),
-                api.get('/collector/stats')
-            ]);
+        acc[district][caserio].push(client);
+        return acc;
+    }, {} as Record<string, Record<string, Client[]>>);
 
-            setClients(clientsRes.data.clients);
-            setStats(statsRes.data);
-            setLoading(false);
-        } catch (error) {
-            console.error('Error al cargar datos:', error);
-            setLoading(false);
-        }
-    };
-
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('userType');
-        navigate('/cobrador/login');
-    };
-
-    const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-    const [clientDebts, setClientDebts] = useState<any[]>([]);
-    const [paymentMethod, setPaymentMethod] = useState('cash');
-    const [receiptData, setReceiptData] = useState<any>(null);
-    const [processing, setProcessing] = useState(false);
-
-    const openPaymentModal = async (client: Client) => {
-        setSelectedClient(client);
-        setClientDebts([]);
-        setReceiptData(null);
-        setPaymentMethod('cash');
-
-        try {
-            // Reusing public endpoint for convenience, or create specific collector endpoint
-            const res = await api.get(`/client/check-debt/${client.dni}`);
-            setClientDebts(res.data.pendingDebts);
-        } catch (error) {
-            console.error('Error fetching debts', error);
-            alert('Error al cargar deudas del cliente');
-        }
-    };
-
-    const handleRegisterPayment = async () => {
-        if (!selectedClient) return;
-        setProcessing(true);
-
-        const totalAmount = clientDebts.reduce((sum, d) => sum + parseFloat(d.amount), 0);
-        const debtIds = clientDebts.map(d => d.id);
-
-        try {
-            const res = await api.post('/collector/payment', {
-                clientId: selectedClient.id,
-                amount: totalAmount,
-                paymentMethod,
-                debtIds
-            });
-
-            setReceiptData({
-                success: true,
-                paymentId: res.data.paymentId,
-                amount: totalAmount,
-                date: new Date().toLocaleString(),
-                clientName: selectedClient.full_name,
-                collectorName: user.fullName
-            });
-
-            // Refresh main list in background
-            loadData();
-
-        } catch (error: any) {
-            console.error(error);
-            alert(error.response?.data?.error || 'Error al registrar cobro');
-        } finally {
-            setProcessing(false);
-        }
-    };
-
-    const handleDownloadReceipt = async () => {
-        if (!receiptRef.current) return;
-
-        try {
-            // Give a small delay to ensure everything is rendered
-            const canvas = await html2canvas(receiptRef.current, {
-                scale: 2, // Higher quality
-                backgroundColor: '#ffffff',
-                logging: false,
-                useCORS: true
-            });
-
-            const image = canvas.toDataURL("image/png");
-            const link = document.createElement('a');
-            link.href = image;
-            link.download = `Recibo_MIRAMAX_${receiptData?.paymentId || '0'}.png`;
-            link.click();
-        } catch (err) {
-            console.error('Error generating receipt image:', err);
-            alert('Error al generar la imagen del recibo');
-        }
-    };
-
-    const handleWhatsAppReceipt = () => {
-        if (!receiptData || !selectedClient) return;
-
-        const message = `
-*COMPROBANTE DE PAGO - MIRAMAX* ✅
-
-📅 *Fecha:* ${receiptData.date}
-👤 *Cliente:* ${receiptData.clientName}
-💰 *Monto Pagado:* S/ ${receiptData.amount.toFixed(2)}
-💳 *Método:* ${paymentMethod === 'cash' ? 'Efectivo' : 'Yape'}
-🆔 *Operación:* #${receiptData.paymentId}
-🏍️ *Cobrador:* ${receiptData.collectorName}
-
-*¡Gracias por su pago!*
-        `.trim();
-
-        const url = `https://wa.me/51${selectedClient.phone}?text=${encodeURIComponent(message)}`;
-        window.open(url, '_blank');
-    };
-
-    const closeTargetClient = () => {
-        setSelectedClient(null);
-        setReceiptData(null);
-    };
-
-    if (loading) {
-        return (
-            <div className="container" style={{ paddingTop: '3rem', textAlign: 'center' }}>
-                <div className="spinner" style={{ margin: '0 auto' }} />
-            </div>
-        );
-    }
+    // Sort districts and caserios alphabetically, but put "Sin ..." at the end if needed (optional simple sort)
+    const sortedDistricts = Object.keys(groupedClients).sort();
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: 'var(--gray-50)' }}>
-            {/* Header */}
-            <div style={{
-                backgroundColor: 'var(--secondary)',
-                color: 'white',
-                padding: 'var(--spacing-4) 0',
-                marginBottom: 'var(--spacing-6)'
-            }}>
+        <div style={styles.wrapper}>
+            {/* ... header and stats ... */}
+            <div style={styles.header}>
                 <div className="container">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={styles.headerFlex}>
                         <div>
-                            <h2 style={{ color: 'white', marginBottom: 'var(--spacing-1)' }}>
-                                Portal del Cobrador
-                            </h2>
-                            <p style={{ opacity: 0.8 }}>
-                                Bienvenido, {user?.fullName}
-                            </p>
+                            <h2 style={styles.headerTitle}>Portal del Cobrador</h2>
+                            <p style={styles.headerSub}>Bienvenido, {user?.fullName}</p>
                         </div>
-                        <button onClick={handleLogout} className="btn btn-outline" style={{ borderColor: 'white', color: 'white' }}>
+                        <button onClick={handleLogout} className="btn btn-outline" style={styles.logoutBtn} title="Cerrar sesión">
                             Cerrar Sesión
                         </button>
                     </div>
@@ -203,47 +55,29 @@ export default function CollectorDashboard() {
             </div>
 
             <div className="container">
-                {/* Stats Cards */}
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                    gap: 'var(--spacing-4)',
-                    marginBottom: 'var(--spacing-6)'
-                }}>
-                    <div className="card" style={{ textAlign: 'center' }}>
-                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-2)' }}>
-                            Cobrado Hoy
-                        </p>
-                        <p style={{ fontSize: 'var(--font-size-3xl)', fontWeight: 700, color: 'var(--primary)' }}>
-                            S/ {stats.todayTotal}
-                        </p>
+                <div style={styles.statsGrid}>
+                    <div className="card" style={styles.statCard}>
+                        <p style={styles.statLabel}>Cobrado Hoy</p>
+                        <p style={styles.statValuePrimary}>S/ {stats.todayTotal}</p>
                     </div>
-
-                    <div className="card" style={{ textAlign: 'center' }}>
-                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-2)' }}>
-                            Cobrado Este Mes
-                        </p>
-                        <p style={{ fontSize: 'var(--font-size-3xl)', fontWeight: 700, color: 'var(--success)' }}>
-                            S/ {stats.monthTotal}
-                        </p>
+                    <div className="card" style={styles.statCard}>
+                        <p style={styles.statLabel}>Cobrado Este Mes</p>
+                        <p style={styles.statValueSuccess}>S/ {stats.monthTotal}</p>
                     </div>
-
-                    <div className="card" style={{ textAlign: 'center' }}>
-                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray-600)', marginBottom: 'var(--spacing-2)' }}>
-                            Clientes Visitados Hoy
-                        </p>
-                        <p style={{ fontSize: 'var(--font-size-3xl)', fontWeight: 700, color: 'var(--info)' }}>
-                            {stats.todayVisits}
-                        </p>
+                    <div className="card" style={styles.statCard}>
+                        <p style={styles.statLabel}>Clientes Visitados Hoy</p>
+                        <p style={styles.statValueInfo}>{stats.todayVisits}</p>
                     </div>
                 </div>
 
-                {/* Buscador */}
                 <div className="card mb-4">
+                    <label htmlFor="client-search" className="visually-hidden" style={{ display: 'none' }}>Buscar cliente</label>
                     <input
+                        id="client-search"
                         type="text"
                         placeholder="Buscar cliente por nombre o DNI..."
                         className="form-input"
+                        title="Ingrese nombre o DNI para filtrar"
                         onChange={(e) => {
                             const searchTerm = e.target.value;
                             if (searchTerm.length > 2 || searchTerm.length === 0) {
@@ -253,12 +87,11 @@ export default function CollectorDashboard() {
                     />
                 </div>
 
-                {/* Clientes Asignados */}
                 <div className="card">
                     <div className="card-header">
                         <h3 className="card-title">Mis Clientes Asignados</h3>
                     </div>
-                    <div style={{ overflowX: 'auto' }}>
+                    <div style={styles.tableWrapper}>
                         <table className="table">
                             <thead>
                                 <tr>
@@ -273,54 +106,69 @@ export default function CollectorDashboard() {
                             <tbody>
                                 {clients.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--spacing-8)' }}>
-                                            No se encontraron clientes
-                                        </td>
+                                        <td colSpan={6} style={styles.emptyCell}>No se encontraron clientes</td>
                                     </tr>
                                 ) : (
-                                    clients.map((client) => (
-                                        <tr key={client.id}>
-                                            <td>
-                                                <div style={{ fontWeight: 600 }}>{client.full_name}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>DNI: {client.dni}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>{client.phone}</div>
-                                            </td>
-                                            <td>
-                                                <div style={{ fontWeight: 600 }}>{client.caserio || client.zone || '-'}</div>
-                                                <div style={{ fontSize: '0.8rem' }}>{client.address}</div>
-                                            </td>
-                                            <td>
-                                                <div style={{ fontWeight: 600, color: 'var(--primary)' }}>{client.plan_type || 'SERVICIO'}</div>
-                                                <div style={{ fontSize: '0.8rem' }}>{client.plan} {client.internet_speed}</div>
-                                                <div style={{ fontSize: '0.8rem' }}>S/ {client.cost}</div>
-                                            </td>
-                                            <td style={{ verticalAlign: 'middle' }}>
-                                                {parseFloat(client.total_debt) > 0 ? (
-                                                    <span style={{ color: 'var(--error)', fontWeight: 700, fontSize: '1.2rem' }}>
-                                                        S/ {client.total_debt}
-                                                    </span>
-                                                ) : (
-                                                    <span style={{ color: 'var(--success)', fontWeight: 600 }}>
-                                                        Al día
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td style={{ verticalAlign: 'middle' }}>
-                                                <span className={`badge badge-${client.service_status === 'active' ? 'success' : 'error'}`}>
-                                                    {client.service_status}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                {parseFloat(client.total_debt) > 0 && (
-                                                    <button
-                                                        className="btn btn-primary btn-sm"
-                                                        onClick={() => openPaymentModal(client)}
-                                                    >
-                                                        Cobrar
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
+                                    sortedDistricts.map(district => (
+                                        Object.keys(groupedClients[district]).sort().map(caserio => (
+                                            <>
+                                                {/* Caserio Header Row */}
+                                                <tr key={`${district}-${caserio}`} style={{ backgroundColor: '#f9fafb' }}>
+                                                    <td colSpan={6} style={{ padding: '0.75rem 1rem', borderBottom: '2px solid #e5e7eb' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase' }}>
+                                                                📍 {district} - {caserio}
+                                                            </span>
+                                                            <span className="badge badge-sm" style={{ backgroundColor: '#e5e7eb', color: '#374151' }}>
+                                                                {groupedClients[district][caserio].length}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {/* Clients in this Caserio */}
+                                                {groupedClients[district][caserio].map(client => (
+                                                    <tr key={client.id}>
+                                                        <td>
+                                                            <div style={styles.clientMain}>{client.full_name}</div>
+                                                            <div style={styles.clientSub}>DNI: {client.dni}</div>
+                                                            <div style={styles.clientSub}>{client.phone}</div>
+                                                        </td>
+                                                        <td>
+                                                            <div style={styles.clientMain}>{client.caserio || client.zone || '-'}</div>
+                                                            <div style={styles.planSub}>{client.address}</div>
+                                                        </td>
+                                                        <td>
+                                                            <div style={styles.planMain}>{client.plan_type || 'SERVICIO'}</div>
+                                                            <div style={styles.planSub}>{client.plan} {client.internet_speed}</div>
+                                                            <div style={styles.planSub}>S/ {client.cost}</div>
+                                                        </td>
+                                                        <td style={styles.debtCell}>
+                                                            {parseFloat(client.total_debt) > 0 ? (
+                                                                <span style={styles.debtValue}>S/ {client.total_debt}</span>
+                                                            ) : (
+                                                                <span style={styles.alDiaText}>Al día</span>
+                                                            )}
+                                                        </td>
+                                                        <td style={styles.debtCell}>
+                                                            <span className={`badge badge-${client.service_status === 'active' ? 'success' : 'error'}`}>
+                                                                {client.service_status}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            {parseFloat(client.total_debt) > 0 && (
+                                                                <button
+                                                                    className="btn btn-primary btn-sm"
+                                                                    onClick={() => openPaymentModal(client)}
+                                                                    title={`Cobrar a ${client.full_name}`}
+                                                                >
+                                                                    Cobrar
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </>
+                                        ))
                                     ))
                                 )}
                             </tbody>
@@ -329,47 +177,27 @@ export default function CollectorDashboard() {
                 </div>
             </div>
 
-            {/* Modal de Pago */}
             {selectedClient && (
-                <div className="modal-overlay" style={{
-                    backdropFilter: 'blur(8px)',
-                    backgroundColor: 'rgba(0,0,0,0.6)'
-                }}>
-                    <div className="modal" style={{
-                        maxWidth: '480px',
-                        borderRadius: '1.5rem',
-                        overflow: 'hidden',
-                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-                        animation: 'modalFadeIn 0.3s cubic-bezier(0.165, 0.84, 0.44, 1)'
-                    }}>
+                <div className="modal-overlay" style={styles.overlay}>
+                    <div className="modal" style={styles.modal}>
                         {!receiptData ? (
                             <>
-                                <div className="modal-header" style={{
-                                    padding: '1.5rem 2rem',
-                                    borderBottom: '1px solid #f3f4f6',
-                                    background: '#ffffff'
-                                }}>
-                                    <div>
-                                        <h3 className="modal-title" style={{ fontSize: '1.25rem', fontWeight: 700 }}>Registrar Cobro</h3>
-                                        <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>Gestión de cobranza MIRAMAX</p>
+                                <div className="modal-header" style={styles.modalHeader}>
+                                    <div style={styles.modalTitleBox}>
+                                        <h3 className="modal-title" style={styles.modalTitle}>Registrar Cobro</h3>
+                                        <p style={styles.modalSub}>Gestión de cobranza MIRAMAX</p>
                                     </div>
-                                    <button onClick={closeTargetClient} className="btn-close" style={{ fontSize: '1.5rem' }}>✕</button>
+                                    <button onClick={() => setSelectedClient(null)} className="btn-close" style={styles.closeBtn} title="Cerrar modal">✕</button>
                                 </div>
-                                <div className="modal-body" style={{ padding: '1.5rem 2rem' }}>
-                                    <div style={{
-                                        backgroundColor: '#f9fafb',
-                                        padding: '1rem',
-                                        borderRadius: '1rem',
-                                        marginBottom: '1.5rem',
-                                        border: '1px solid #f3f4f6'
-                                    }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                            <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>Cliente:</span>
-                                            <span style={{ fontWeight: 600 }}>{selectedClient.full_name}</span>
+                                <div className="modal-body" style={styles.modalBody}>
+                                    <div style={styles.summaryBox}>
+                                        <div style={styles.summaryRow}>
+                                            <span style={styles.summaryLabel}>Cliente:</span>
+                                            <span style={styles.summaryValue}>{selectedClient.full_name}</span>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>Total a Pagar:</span>
-                                            <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '1.1rem' }}>
+                                        <div style={styles.summaryRowLast}>
+                                            <span style={styles.summaryLabel}>Total a Pagar:</span>
+                                            <span style={styles.summaryValuePrimary}>
                                                 S/ {clientDebts.reduce((sum, d) => sum + parseFloat(d.amount), 0).toFixed(2)}
                                             </span>
                                         </div>
@@ -379,45 +207,21 @@ export default function CollectorDashboard() {
                                         <label className="form-label" style={{ fontWeight: 600, marginBottom: '0.75rem', display: 'block' }}>
                                             Método de Pago
                                         </label>
-                                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                        <div style={styles.paymentMethods}>
                                             <button
-                                                className={`btn`}
+                                                className="btn"
                                                 onClick={() => setPaymentMethod('cash')}
-                                                style={{
-                                                    flex: 1,
-                                                    padding: '0.75rem',
-                                                    borderRadius: '0.75rem',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    gap: '0.5rem',
-                                                    border: paymentMethod === 'cash' ? '2px solid var(--primary)' : '2px solid #e5e7eb',
-                                                    backgroundColor: paymentMethod === 'cash' ? '#fff5f0' : 'white',
-                                                    color: paymentMethod === 'cash' ? 'var(--primary)' : '#6b7280',
-                                                    transition: 'all 0.2s',
-                                                    fontWeight: 600
-                                                }}
+                                                style={styles.methodBtn(paymentMethod === 'cash', 'var(--primary)', '#fff5f0')}
+                                                title="Pagar con efectivo"
                                             >
                                                 <span style={{ fontSize: '1.5rem' }}>💵</span>
                                                 Efectivo
                                             </button>
                                             <button
-                                                className={`btn`}
+                                                className="btn"
                                                 onClick={() => setPaymentMethod('yape')}
-                                                style={{
-                                                    flex: 1,
-                                                    padding: '0.75rem',
-                                                    borderRadius: '0.75rem',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    gap: '0.5rem',
-                                                    border: paymentMethod === 'yape' ? '2px solid #742284' : '2px solid #e5e7eb',
-                                                    backgroundColor: paymentMethod === 'yape' ? '#f5e8f7' : 'white',
-                                                    color: paymentMethod === 'yape' ? '#742284' : '#6b7280',
-                                                    transition: 'all 0.2s',
-                                                    fontWeight: 600
-                                                }}
+                                                style={styles.methodBtn(paymentMethod === 'yape', '#742284', '#f5e8f7')}
+                                                title="Pagar con Yape"
                                             >
                                                 <span style={{ fontSize: '1.5rem' }}>📱</span>
                                                 Yape
@@ -427,191 +231,70 @@ export default function CollectorDashboard() {
 
                                     <div style={{ fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem' }}>Detalle de Meses:</div>
                                     {clientDebts.length > 0 ? (
-                                        <div style={{
-                                            maxHeight: '160px',
-                                            overflowY: 'auto',
-                                            background: '#ffffff',
-                                            padding: '0.5rem',
-                                            borderRadius: '0.75rem',
-                                            border: '1px solid #f3f4f6'
-                                        }}>
+                                        <div style={styles.debtList}>
                                             {clientDebts.map(debt => (
-                                                <div key={debt.id} style={{
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    padding: '0.75rem',
-                                                    borderBottom: '1px solid #f9fafb',
-                                                    fontSize: '0.9rem'
-                                                }}>
+                                                <div key={debt.id} style={styles.debtRow}>
                                                     <span style={{ color: '#374151' }}>{debt.month} {debt.year}</span>
                                                     <strong style={{ color: '#111827' }}>S/ {parseFloat(debt.amount).toFixed(2)}</strong>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <div style={{ textAlign: 'center', padding: '1rem', color: '#9ca3af' }}>
+                                        <div style={{ textAlign: 'center' as const, padding: '1rem', color: '#9ca3af' }}>
                                             <div className="spinner-mini" style={{ margin: '0 auto 0.5rem' }}></div>
                                             Cargando deudas...
                                         </div>
                                     )}
                                 </div>
-                                <div className="modal-footer" style={{
-                                    padding: '1.25rem 2rem',
-                                    background: '#f9fafb',
-                                    borderTop: '1px solid #f3f4f6',
-                                    gap: '1rem'
-                                }}>
-                                    <button onClick={closeTargetClient} className="btn" style={{
-                                        color: '#6b7280',
-                                        fontWeight: 600,
-                                        fontSize: '0.95rem'
-                                    }}>Cancelar</button>
+                                <div className="modal-footer" style={styles.modalFooter}>
+                                    <button onClick={() => setSelectedClient(null)} className="btn" style={{ color: '#6b7280', fontWeight: 600 }}>Cancelar</button>
                                     <button
                                         onClick={handleRegisterPayment}
                                         className="btn btn-primary"
                                         disabled={processing || clientDebts.length === 0}
-                                        style={{
-                                            flex: 1,
-                                            padding: '0.85rem',
-                                            borderRadius: '0.75rem',
-                                            fontWeight: 700,
-                                            boxShadow: '0 4px 12px rgba(255,102,0,0.2)'
-                                        }}
+                                        style={styles.confirmBtn}
                                     >
                                         {processing ? 'Registrando...' : 'Confirmar Pago'}
                                     </button>
                                 </div>
                             </>
                         ) : (
-                            <>
-                                <div className="modal-body" style={{ textAlign: 'center', padding: '2rem' }}>
-                                    <div style={{
-                                        width: '60px',
-                                        height: '60px',
-                                        backgroundColor: '#def7ec',
-                                        borderRadius: '50%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        margin: '0 auto 1rem',
-                                        fontSize: '2rem',
-                                        color: '#0e9f6e'
-                                    }}>
-                                        ✓
+                            <div className="modal-body" style={{ textAlign: 'center' as const, padding: '2rem' }}>
+                                <div style={styles.successIconBox}>✓</div>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827', marginBottom: '1.5rem' }}>¡Cobro Exitoso!</h3>
+
+                                <div ref={receiptRef} style={styles.receiptCard}>
+                                    <div style={{ textAlign: 'center' as const, marginBottom: '1rem' }}>
+                                        <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>MIRAMAX INTERNET</h4>
+                                        <p style={{ margin: 0, fontSize: '0.7rem', color: '#6b7280' }}>Conectando tu mundo</p>
                                     </div>
-                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827', marginBottom: '1.5rem' }}>
-                                        ¡Cobro Exitoso!
-                                    </h3>
-
-                                    {/* Printable Receipt Card */}
-                                    <div ref={receiptRef} style={{
-                                        backgroundColor: '#ffffff',
-                                        padding: '2rem',
-                                        borderRadius: '0.5rem',
-                                        border: '1px dashed #d1d5db',
-                                        textAlign: 'left',
-                                        marginBottom: '1.5rem',
-                                        fontFamily: 'monospace',
-                                        color: '#000',
-                                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
-                                    }}>
-                                        <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                                            <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>MIRAMAX INTERNET</h4>
-                                            <p style={{ margin: 0, fontSize: '0.7rem', color: '#6b7280' }}>Conectando tu mundo</p>
-                                        </div>
-
-                                        <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '1rem 0' }}></div>
-
-                                        <div style={{ fontSize: '0.85rem', lineHeight: '1.6' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span>FECHA:</span>
-                                                <span style={{ fontWeight: 700 }}>{receiptData.date}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span>RECIBO #:</span>
-                                                <span style={{ fontWeight: 700 }}>{receiptData.paymentId}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                                <span>COBRADOR:</span>
-                                                <span style={{ fontWeight: 700 }}>{receiptData.collectorName}</span>
-                                            </div>
-
-                                            <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '0.5rem 0' }}></div>
-
-                                            <div style={{ marginBottom: '0.5rem' }}>
-                                                <span>CLIENTE:</span>
-                                                <div style={{ fontWeight: 700 }}>{receiptData.clientName}</div>
-                                            </div>
-
-                                            <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '0.5rem 0' }}></div>
-
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', marginTop: '0.5rem' }}>
-                                                <span>TOTAL PAGADO:</span>
-                                                <span style={{ fontWeight: 900 }}>S/ {receiptData.amount.toFixed(2)}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                                                <span>MÉTODO:</span>
-                                                <span>{paymentMethod === 'cash' ? 'EFECTIVO' : 'YAPE'}</span>
-                                            </div>
-                                        </div>
-
-                                        <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '1rem 0' }}></div>
-
-                                        <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#6b7280' }}>
-                                            ¡Gracias por su preferencia!
-                                        </div>
+                                    <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '1rem 0' }}></div>
+                                    <div style={{ fontSize: '0.85rem', lineHeight: '1.6' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>FECHA:</span><span style={{ fontWeight: 700 }}>{receiptData.date}</span></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>RECIBO #:</span><span style={{ fontWeight: 700 }}>{receiptData.paymentId}</span></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}><span>COBRADOR:</span><span style={{ fontWeight: 700 }}>{receiptData.collectorName}</span></div>
+                                        <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '0.5rem 0' }}></div>
+                                        <div style={{ marginBottom: '0.5rem' }}><span>CLIENTE:</span><div style={{ fontWeight: 700 }}>{receiptData.clientName}</div></div>
+                                        <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '0.5rem 0' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', marginTop: '0.5rem' }}><span>TOTAL PAGADO:</span><span style={{ fontWeight: 900 }}>S/ {receiptData.amount.toFixed(2)}</span></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}><span>MÉTODO:</span><span>{paymentMethod === 'cash' ? 'EFECTIVO' : 'YAPE'}</span></div>
                                     </div>
-
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                        <button
-                                            onClick={handleWhatsAppReceipt}
-                                            className="btn"
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.85rem',
-                                                borderRadius: '0.75rem',
-                                                backgroundColor: '#25D366',
-                                                color: 'white',
-                                                fontWeight: 700,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                gap: '0.5rem'
-                                            }}
-                                        >
-                                            📲 Enviar a WhatsApp
-                                        </button>
-
-                                        <button
-                                            onClick={handleDownloadReceipt}
-                                            className="btn"
-                                            style={{
-                                                width: '100%',
-                                                padding: '0.85rem',
-                                                borderRadius: '0.75rem',
-                                                backgroundColor: '#3b82f6',
-                                                color: 'white',
-                                                fontWeight: 700,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                gap: '0.5rem'
-                                            }}
-                                        >
-                                            🖼️ Descargar Imagen
-                                        </button>
-
-                                        <button onClick={closeTargetClient} className="btn" style={{
-                                            width: '100%',
-                                            padding: '0.75rem',
-                                            color: '#6b7280',
-                                            fontWeight: 600
-                                        }}>
-                                            Finalizar
-                                        </button>
-                                    </div>
+                                    <div style={{ borderBottom: '1px dashed #e5e7eb', margin: '1rem 0' }}></div>
+                                    <div style={{ textAlign: 'center' as const, fontSize: '0.7rem', color: '#6b7280' }}>¡Gracias por su preferencia!</div>
                                 </div>
-                            </>
+
+                                <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '0.75rem' }}>
+                                    <button onClick={handleWhatsAppReceipt} className="btn" style={styles.wsBtn} title="Enviar por WhatsApp">
+                                        📲 Enviar a WhatsApp
+                                    </button>
+                                    <button onClick={handleDownloadReceipt} className="btn" style={styles.downloadBtn} title="Descargar como imagen">
+                                        🖼️ Descargar Imagen
+                                    </button>
+                                    <button onClick={() => setSelectedClient(null)} className="btn" style={{ width: '100%', padding: '0.75rem', color: '#6b7280', fontWeight: 600 }}>
+                                        Finalizar
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

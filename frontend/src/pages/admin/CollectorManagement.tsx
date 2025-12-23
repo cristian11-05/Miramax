@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { regions, getProvinces, getDistricts } from '../../data/ubigeo';
+import ZoneAssignmentModal from '../../components/admin/ZoneAssignmentModal';
 
 interface Collector {
     id: number;
@@ -20,6 +21,8 @@ export default function CollectorManagement() {
     const [collectors, setCollectors] = useState<Collector[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+    const [assignmentCollector, setAssignmentCollector] = useState<Collector | null>(null);
     const [editingCollector, setEditingCollector] = useState<Collector | null>(null);
     const [formData, setFormData] = useState({
         username: '',
@@ -180,6 +183,17 @@ export default function CollectorManagement() {
                                             </span>
                                         </td>
                                         <td className="cell-actions">
+                                            <button
+                                                onClick={() => {
+                                                    setAssignmentCollector(collector);
+                                                    setShowAssignmentModal(true);
+                                                }}
+                                                className="btn btn-sm btn-outline-primary mr-2"
+                                                title="Asignar Ruta"
+                                                style={{ border: '1px solid #FF6600', color: '#FF6600' }}
+                                            >
+                                                📍 Ruta
+                                            </button>
                                             <button
                                                 onClick={() => openEditModal(collector)}
                                                 className="btn btn-sm btn-outline mr-2"
@@ -371,6 +385,17 @@ export default function CollectorManagement() {
                             </form>
                         </div>
                     </div>
+                )}
+                {/* Modal de Asignación de Ruta */}
+                {showAssignmentModal && assignmentCollector && (
+                    <ZoneAssignmentModal
+                        collector={assignmentCollector}
+                        onClose={() => setShowAssignmentModal(false)}
+                        onSuccess={() => {
+                            setShowAssignmentModal(false);
+                            loadCollectors();
+                        }}
+                    />
                 )}
             </div>
         </div>

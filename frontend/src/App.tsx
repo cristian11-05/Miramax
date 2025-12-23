@@ -15,6 +15,9 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import ClientManagement from './pages/admin/ClientManagement';
 import CollectorManagement from './pages/admin/CollectorManagement';
 import PaymentVerification from './pages/admin/PaymentVerification';
+import DebtManagement from './pages/admin/DebtManagement';
+import AdminConfig from './pages/admin/AdminConfig';
+import ReportsDashboard from './pages/admin/ReportsDashboard';
 import StaffSelection from './pages/staff/StaffSelection';
 
 
@@ -50,6 +53,9 @@ function App() {
                         <Route path="/admin/clients" element={<ClientManagement />} />
                         <Route path="/admin/collectors" element={<CollectorManagement />} />
                         <Route path="/admin/payments/verification" element={<PaymentVerification />} />
+                        <Route path="/admin/debts" element={<DebtManagement />} />
+                        <Route path="/admin/config" element={<AdminConfig />} />
+                        <Route path="/admin/reports" element={<ReportsDashboard />} />
                     </>
                 )}
 

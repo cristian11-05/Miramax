@@ -17,6 +17,175 @@ interface SupportChatbotProps {
     serviceData?: any;
 }
 
+const styles = {
+    trigger: {
+        position: 'fixed' as const,
+        bottom: '2rem',
+        right: '2rem',
+        width: '65px',
+        height: '65px',
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #FF6600 0%, #E55A00 100%)',
+        color: 'white',
+        border: 'none',
+        boxShadow: '0 8px 20px rgba(255,102,0,0.3)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '1.8rem',
+        zIndex: 1000,
+        transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+    },
+    window: {
+        position: 'fixed' as const,
+        bottom: '2rem',
+        right: '2rem',
+        width: '380px',
+        maxWidth: '95vw',
+        height: '600px',
+        maxHeight: '80vh',
+        backgroundColor: '#ffffff',
+        borderRadius: '1.5rem',
+        boxShadow: '0 15px 50px rgba(0,0,0,0.15)',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        zIndex: 1001,
+        overflow: 'hidden' as const,
+        animation: 'chatSlideUp 0.4s cubic-bezier(0.165, 0.84, 0.44, 1)'
+    },
+    header: {
+        padding: '1.25rem',
+        background: 'linear-gradient(90deg, #FF6600 0%, #FF8533 100%)',
+        color: 'white',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+    },
+    headerStatusBox: { display: 'flex', alignItems: 'center', gap: '12px' },
+    statusIndicator: {
+        width: '12px',
+        height: '12px',
+        backgroundColor: '#4ade80',
+        borderRadius: '50%',
+        boxShadow: '0 0 8px #4ade80'
+    },
+    headerText: { fontWeight: 700, display: 'block', fontSize: '1rem' },
+    headerSubText: { fontSize: '0.7rem', opacity: 0.9 },
+    closeBtn: {
+        background: 'rgba(255,255,255,0.1)',
+        border: 'none',
+        color: 'white',
+        width: '32px',
+        height: '32px',
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        transition: 'background 0.2s'
+    },
+    body: {
+        flex: 1,
+        padding: '1.5rem',
+        overflowY: 'auto' as const,
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: '1.25rem',
+        backgroundColor: '#f9fafb',
+        backgroundImage: 'radial-gradient(#e5e7eb 0.5px, transparent 0.5px)',
+        backgroundSize: '20px 20px'
+    },
+    botMessage: {
+        backgroundColor: 'white',
+        padding: '1.25rem',
+        borderRadius: '1rem 1rem 1rem 0',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+        borderLeft: '4px solid #FF6600',
+        maxWidth: '90%',
+        animation: 'fadeIn 0.3s ease-in'
+    },
+    messageText: {
+        margin: 0,
+        fontSize: '1rem',
+        lineHeight: '1.5',
+        color: '#374151'
+    },
+    form: {
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: '1rem',
+        animation: 'fadeInUp 0.4s ease-out'
+    },
+    inputWrapper: { position: 'relative' as const },
+    input: (error: string) => ({
+        width: '100%',
+        padding: '1rem 1.25rem',
+        borderRadius: '0.75rem',
+        border: error ? '2px solid #ef4444' : '2px solid #e5e7eb',
+        fontSize: '1rem',
+        transition: 'all 0.2s',
+        outline: 'none',
+        color: '#1f2937'
+    }),
+    miniSpinner: {
+        position: 'absolute' as const,
+        right: '1rem',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: '20px',
+        height: '20px',
+        border: '2px solid transparent',
+        borderTopColor: '#FF6600',
+        borderRadius: '50%',
+        animation: 'spin 0.6s linear infinite'
+    },
+    errorText: { color: '#ef4444', fontSize: '0.85rem', margin: 0 },
+    submitBtn: (disabled: boolean) => ({
+        padding: '1rem',
+        borderRadius: '0.75rem',
+        backgroundColor: disabled ? '#d1d5db' : '#FF6600',
+        color: 'white',
+        border: 'none',
+        fontWeight: 700,
+        cursor: 'pointer',
+        transition: 'background 0.2s transform 0.1s'
+    }),
+    optionsBox: { display: 'flex', flexDirection: 'column' as const, gap: '0.75rem' },
+    optionBtn: (type?: string) => ({
+        padding: '1rem 1.25rem',
+        borderRadius: '0.75rem',
+        backgroundColor: type === 'success' ? '#10b981' : (type === 'danger' ? '#ef4444' : '#ffffff'),
+        color: type ? 'white' : '#FF6600',
+        border: type ? 'none' : '2px solid #FF6600',
+        cursor: 'pointer',
+        textAlign: 'left' as const,
+        fontSize: '0.95rem',
+        fontWeight: 600,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    }),
+    backBtn: {
+        background: 'none',
+        border: 'none',
+        color: '#6b7280',
+        fontSize: '0.85rem',
+        cursor: 'pointer',
+        marginTop: '0.5rem',
+        textAlign: 'center' as const,
+        textDecoration: 'underline'
+    },
+    footerBranding: {
+        padding: '0.75rem',
+        textAlign: 'center' as const,
+        fontSize: '0.75rem',
+        color: '#9ca3af',
+        borderTop: '1px solid #f3f4f6',
+        backgroundColor: '#ffffff'
+    }
+};
+
 const SupportChatbot: React.FC<SupportChatbotProps> = ({
     clientName: initialClientName,
     serviceData: initialServiceData
@@ -28,8 +197,6 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
     const [dniInput, setDniInput] = useState('');
     const [isIdentifying, setIsIdentifying] = useState(false);
     const [error, setError] = useState('');
-
-    // Internal state for identified client
     const [clientData, setClientData] = useState<{ name?: string; service?: any }>({
         name: initialClientName,
         service: initialServiceData
@@ -43,7 +210,6 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
         }
     }, [currentNodeId, isOpen, isIdentifying, error]);
 
-    // Update internal state if props change and navigate to service select
     useEffect(() => {
         if (initialClientName) {
             setClientData({ name: initialClientName, service: initialServiceData });
@@ -57,20 +223,15 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
             setError('El DNI debe tener 8 dígitos');
             return;
         }
-
         setIsIdentifying(true);
         setError('');
-
         try {
             const response = await api.get(`/client/check-debt/${dniInput}`);
             if (response.data) {
                 const data = response.data;
                 setClientData({
                     name: data.client.fullName,
-                    service: {
-                        plan: data.client.plan,
-                        status: data.client.serviceStatus
-                    }
+                    service: { plan: data.client.plan, status: data.client.serviceStatus }
                 });
                 setCurrentNodeId('service_select');
             }
@@ -98,7 +259,7 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
         welcome: {
             id: 'welcome',
             text: '¡Hola! 😊 Soy el asistente virtual de MIRAMAX. Para ayudarte mejor, ¿podrías brindarme tu DNI?',
-            options: [] // Managed by custom input UI
+            options: []
         },
         service_select: {
             id: 'service_select',
@@ -110,7 +271,6 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
                 { label: '🔗 Cableado', nextNode: 'cables_start' },
             ]
         },
-        // --- INTERNET FLOW ---
         internet_start: {
             id: 'internet_start',
             text: 'Entiendo. Vamos a revisar tu conexión. Primero, ¿tienes señal de WiFi en tu dispositivo pero no navega, o no aparece la red WiFi?',
@@ -151,7 +311,6 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
                 { label: 'No, sigue igual', nextNode: 'internet_restart' },
             ]
         },
-        // --- POWER FLOW ---
         power_start: {
             id: 'power_start',
             text: 'Vamos a revisar la energía. ¿El router tiene alguna luz encendida?',
@@ -177,7 +336,6 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
                 { label: 'Tengo otra duda', nextNode: 'service_select' }
             ]
         },
-        // --- TV FLOW ---
         tv_start: {
             id: 'tv_start',
             text: '¿Qué sucede con tu TV? ¿No hay señal o los canales se ven entrecortados?',
@@ -211,7 +369,6 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
                 { label: 'No es el control', nextNode: 'tv_start' }
             ]
         },
-        // --- CABLES FLOW ---
         cables_start: {
             id: 'cables_start',
             text: 'Revisemos el cableado. ¿Ves algún cable suelto, doblado o dañado?',
@@ -228,7 +385,6 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
                 { label: 'Sigue sin funcionar', nextNode: 'escalate_generic' }
             ]
         },
-        // --- FINAL STATES ---
         resolved: {
             id: 'resolved',
             text: '¡Excelente! Me alegra haber podido ayudarte. ¿Necesitas algo más?',
@@ -273,46 +429,14 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
 
     const currentNode = nodes[currentNodeId] || nodes.welcome;
 
-    const navigateTo = (nodeId: string) => {
-        setHistory([...history, currentNodeId]);
-        setCurrentNodeId(nodeId);
-    };
-
-    const handleOptionClick = (option: any) => {
-        if (option.action) {
-            option.action();
-        }
-        if (option.nextNode) {
-            navigateTo(option.nextNode);
-        }
-    };
-
     return (
         <>
-            {/* Floating Button */}
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
                     className="chatbot-trigger"
-                    style={{
-                        position: 'fixed',
-                        bottom: '2rem',
-                        right: '2rem',
-                        width: '65px',
-                        height: '65px',
-                        borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #FF6600 0%, #E55A00 100%)',
-                        color: 'white',
-                        border: 'none',
-                        boxShadow: '0 8px 20px rgba(255,102,0,0.3)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '1.8rem',
-                        zIndex: 1000,
-                        transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                    }}
+                    style={styles.trigger}
+                    title="Abrir chat de soporte"
                     onMouseOver={(e) => {
                         e.currentTarget.style.transform = 'scale(1.1) translateY(-5px)';
                         e.currentTarget.style.boxShadow = '0 12px 24px rgba(255,102,0,0.4)';
@@ -326,63 +450,20 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
                 </button>
             )}
 
-            {/* Chat Window */}
             {isOpen && (
-                <div className="chatbot-window" style={{
-                    position: 'fixed',
-                    bottom: '2rem',
-                    right: '2rem',
-                    width: '380px',
-                    maxWidth: '95vw',
-                    height: '600px',
-                    maxHeight: '80vh',
-                    backgroundColor: '#ffffff',
-                    borderRadius: '1.5rem',
-                    boxShadow: '0 15px 50px rgba(0,0,0,0.15)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    zIndex: 1001,
-                    overflow: 'hidden',
-                    animation: 'chatSlideUp 0.4s cubic-bezier(0.165, 0.84, 0.44, 1)'
-                }}>
-                    {/* Header */}
-                    <div style={{
-                        padding: '1.25rem',
-                        background: 'linear-gradient(90deg, #FF6600 0%, #FF8533 100%)',
-                        color: 'white',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{
-                                width: '12px',
-                                height: '12px',
-                                backgroundColor: '#4ade80',
-                                borderRadius: '50%',
-                                boxShadow: '0 0 8px #4ade80'
-                            }} />
+                <div className="chatbot-window" style={styles.window}>
+                    <div style={styles.header}>
+                        <div style={styles.headerStatusBox}>
+                            <div style={styles.statusIndicator} />
                             <div>
-                                <span style={{ fontWeight: 700, display: 'block', fontSize: '1rem' }}>Asistente MIRAMAX</span>
-                                <span style={{ fontSize: '0.7rem', opacity: 0.9 }}>Siempre en línea</span>
+                                <span style={styles.headerText}>Asistente MIRAMAX</span>
+                                <span style={styles.headerSubText}>Siempre en línea</span>
                             </div>
                         </div>
                         <button
                             onClick={() => setIsOpen(false)}
-                            style={{
-                                background: 'rgba(255,255,255,0.1)',
-                                border: 'none',
-                                color: 'white',
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'background 0.2s'
-                            }}
+                            style={styles.closeBtn}
+                            title="Cerrar chat"
                             onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
                             onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
                         >
@@ -390,121 +471,57 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
                         </button>
                     </div>
 
-                    {/* Chat Body */}
-                    <div className="chatbot-body" style={{
-                        flex: 1,
-                        padding: '1.5rem',
-                        overflowY: 'auto',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '1.25rem',
-                        backgroundColor: '#f9fafb',
-                        backgroundImage: 'radial-gradient(#e5e7eb 0.5px, transparent 0.5px)',
-                        backgroundSize: '20px 20px'
-                    }}>
-                        {/* Bot Message Card */}
-                        <div style={{
-                            backgroundColor: 'white',
-                            padding: '1.25rem',
-                            borderRadius: '1rem 1rem 1rem 0',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-                            borderLeft: '4px solid #FF6600',
-                            maxWidth: '90%',
-                            animation: 'fadeIn 0.3s ease-in'
-                        }}>
-                            <p style={{
-                                margin: 0,
-                                fontSize: '1rem',
-                                lineHeight: '1.5',
-                                color: '#374151'
-                            }}>
+                    <div className="chatbot-body" style={styles.body}>
+                        <div style={styles.botMessage}>
+                            <p style={styles.messageText}>
                                 {currentNode.text}
                             </p>
                         </div>
 
-                        {/* Identification Form */}
                         {currentNodeId === 'welcome' && !clientData.name && (
-                            <form onSubmit={handleDniSubmit} style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '1rem',
-                                animation: 'fadeInUp 0.4s ease-out'
-                            }}>
-                                <div style={{ position: 'relative' }}>
+                            <form onSubmit={handleDniSubmit} style={styles.form}>
+                                <div style={styles.inputWrapper}>
+                                    <label htmlFor="dni-cb-input" className="visually-hidden" style={{ display: 'none' }}>Ingresar DNI</label>
                                     <input
+                                        id="dni-cb-input"
                                         type="text"
                                         placeholder="Introduce tu DNI"
                                         value={dniInput}
                                         onChange={(e) => setDniInput(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                                        style={{
-                                            width: '100%',
-                                            padding: '1rem 1.25rem',
-                                            borderRadius: '0.75rem',
-                                            border: error ? '2px solid #ef4444' : '2px solid #e5e7eb',
-                                            fontSize: '1rem',
-                                            transition: 'all 0.2s',
-                                            outline: 'none',
-                                            color: '#1f2937'
-                                        }}
-                                        onFocus={(e) => e.target.style.borderColor = '#FF6600'}
-                                        onBlur={(e) => e.target.style.borderColor = error ? '#ef4444' : '#e5e7eb'}
+                                        style={styles.input(error)}
+                                        title="Ingrese su número de DNI para identificarse"
+                                        onFocus={(e) => e.currentTarget.style.borderColor = '#FF6600'}
+                                        onBlur={(e) => e.currentTarget.style.borderColor = error ? '#ef4444' : '#e5e7eb'}
                                     />
                                     {isIdentifying && (
-                                        <div className="mini-spinner" style={{
-                                            position: 'absolute',
-                                            right: '1rem',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            width: '20px',
-                                            height: '20px',
-                                            border: '2px solid transparent',
-                                            borderTopColor: '#FF6600',
-                                            borderRadius: '50%',
-                                            animation: 'spin 0.6s linear infinite'
-                                        }} />
+                                        <div className="mini-spinner" style={styles.miniSpinner} />
                                     )}
                                 </div>
                                 {error && (
-                                    <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: 0 }}>{error}</p>
+                                    <p style={styles.errorText}>{error}</p>
                                 )}
                                 <button
                                     type="submit"
                                     disabled={isIdentifying || dniInput.length !== 8}
-                                    style={{
-                                        padding: '1rem',
-                                        borderRadius: '0.75rem',
-                                        backgroundColor: (isIdentifying || dniInput.length !== 8) ? '#d1d5db' : '#FF6600',
-                                        color: 'white',
-                                        border: 'none',
-                                        fontWeight: 700,
-                                        cursor: 'pointer',
-                                        transition: 'background 0.2s transform 0.1s'
-                                    }}
+                                    style={styles.submitBtn(isIdentifying || dniInput.length !== 8)}
                                 >
                                     {isIdentifying ? 'Verificando...' : 'Identificarme'}
                                 </button>
                             </form>
                         )}
 
-                        {/* Options Buttons */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={styles.optionsBox}>
                             {currentNode.options.map((option, idx) => (
                                 <button
                                     key={idx}
-                                    onClick={() => handleOptionClick(option)}
-                                    style={{
-                                        padding: '1rem 1.25rem',
-                                        borderRadius: '0.75rem',
-                                        backgroundColor: option.type === 'success' ? '#10b981' : (option.type === 'danger' ? '#ef4444' : '#ffffff'),
-                                        color: option.type ? 'white' : '#FF6600',
-                                        border: option.type ? 'none' : '2px solid #FF6600',
-                                        cursor: 'pointer',
-                                        textAlign: 'left',
-                                        fontSize: '0.95rem',
-                                        fontWeight: 600,
-                                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    onClick={() => {
+                                        if (option.action) option.action();
+                                        if (option.nextNode) {
+                                            setHistory([...history, currentNodeId]);
+                                            setCurrentNodeId(option.nextNode);
+                                        }
                                     }}
+                                    style={styles.optionBtn(option.type)}
                                     onMouseOver={(e) => {
                                         if (!option.type) {
                                             e.currentTarget.style.backgroundColor = '#fff5f0';
@@ -533,16 +550,7 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
                                             setCurrentNodeId('service_select');
                                         }
                                     }}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: '#6b7280',
-                                        fontSize: '0.85rem',
-                                        cursor: 'pointer',
-                                        marginTop: '0.5rem',
-                                        textAlign: 'center',
-                                        textDecoration: 'underline'
-                                    }}
+                                    style={styles.backBtn}
                                 >
                                     Regresar al paso anterior
                                 </button>
@@ -551,15 +559,7 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
                         <div ref={chatEndRef} />
                     </div>
 
-                    {/* Footer Branding */}
-                    <div style={{
-                        padding: '0.75rem',
-                        textAlign: 'center',
-                        fontSize: '0.75rem',
-                        color: '#9ca3af',
-                        borderTop: '1px solid #f3f4f6',
-                        backgroundColor: '#ffffff'
-                    }}>
+                    <div style={styles.footerBranding}>
                         Tecnología MIRAMAX AI
                     </div>
                 </div>

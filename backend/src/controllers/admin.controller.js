@@ -64,8 +64,8 @@ export const getDashboardStats = async (req, res) => {
         const clientsResult = await query('SELECT COUNT(*) as count FROM clients');
         const collectorsResult = await query('SELECT COUNT(*) as count FROM collectors');
         const pendingResult = await query(
-            'SELECT COUNT(*) as count FROM payments WHERE verification_status = ?',
-            ['pending']
+            'SELECT COUNT(d.id) as count FROM debts d JOIN clients c ON d.client_id = c.id WHERE d.status = ?',
+            ['in_review']
         );
 
         res.json({
@@ -285,6 +285,49 @@ export const deleteCollector = async (req, res) => {
     }
 };
 
+export const assignCollectorToLocations = async (req, res) => {
+    try {
+        const { id } = req.params; // Collector ID
+        const { district, caserios } = req.body; // { district: "Mache", caserios: ["Lluin", "Campo Bello"] }
+
+        if (!id || !district || !caserios || !Array.isArray(caserios)) {
+            return res.status(400).json({ error: 'Datos incompletos.' });
+        }
+
+        if (caserios.length === 0) {
+            return res.json({ success: true, message: 'No se seleccionaron caseríos.' });
+        }
+
+        // Construir placeholders para IN clause
+        const placeholders = caserios.map(() => '?').join(',');
+
+        // Actualizar clientes que coincidan con distrito y caseríos
+        // IMPORTANTE: Se actualiza el campo 'zone' para reflejar la ruta y el 'collector_id'
+        // Asumimos que region/provincia son implícitos o únicos por distrito en este contexto local, 
+        // pero para mayor seguridad podríamos recibirlos también.
+
+        const sql = `
+            UPDATE clients 
+            SET collector_id = ?
+            WHERE district = ? AND caserio IN (${placeholders})
+        `;
+
+        const params = [id, district, ...caserios];
+
+        const result = await query(sql, params);
+
+        res.json({
+            success: true,
+            message: `Se asignaron ${result.rows.affectedRows} clientes de ${caserios.length} caseríos al cobrador.`,
+            affected: result.rows.affectedRows
+        });
+
+    } catch (error) {
+        console.error('Error al asignar ruta:', error);
+        res.status(500).json({ error: 'Error al asignar ruta.' });
+    }
+};
+
 // ==================== DEUDAS ====================
 
 export const getAllDebts = async (req, res) => {
@@ -298,22 +341,68 @@ export const getAllDebts = async (req, res) => {
 };
 
 export const createDebt = async (req, res) => {
-    res.status(501).json({ error: 'Funcionalidad no implementada aún.' });
+    try {
+        const { clientId, month, year, amount, dueDate } = req.body;
+        if (!clientId || !month || !year || !amount) {
+            return res.status(400).json({ error: 'Faltan datos obligatorios.' });
+        }
+
+        await query(
+            'INSERT INTO debts (client_id, month, year, amount, status, due_date) VALUES (?, ?, ?, ?, ?, ?)',
+            [clientId, month, year, amount, 'pending', dueDate || null]
+        );
+
+        res.json({ success: true, message: 'Deuda creada correctamente.' });
+    } catch (error) {
+        console.error('Error al crear deuda:', error);
+        res.status(500).json({ error: 'Error al crear deuda.' });
+    }
 };
 
 export const updateDebt = async (req, res) => {
-    res.status(501).json({ error: 'Funcionalidad no implementada aún.' });
+    try {
+        const { id } = req.params;
+        const { month, year, amount, status, dueDate } = req.body;
+
+        await query(
+            'UPDATE debts SET month = ?, year = ?, amount = ?, status = ?, due_date = ? WHERE id = ?',
+            [month, year, amount, status, dueDate || null, id]
+        );
+
+        res.json({ success: true, message: 'Deuda actualizada.' });
+    } catch (error) {
+        console.error('Error al actualizar deuda:', error);
+        res.status(500).json({ error: 'Error al actualizar deuda.' });
+    }
 };
 
 export const deleteDebt = async (req, res) => {
-    res.status(501).json({ error: 'Funcionalidad no implementada aún.' });
+    try {
+        const { id } = req.params;
+        await query('DELETE FROM debts WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Deuda eliminada.' });
+    } catch (error) {
+        console.error('Error al eliminar deuda:', error);
+        res.status(500).json({ error: 'Error al eliminar deuda.' });
+    }
 };
 
 // ==================== PAGOS ====================
 
 export const getAllPayments = async (req, res) => {
     try {
-        const result = await query('SELECT * FROM payments ORDER BY payment_date DESC LIMIT 100');
+        const { status } = req.query;
+        let queryStr = 'SELECT * FROM payments';
+        const params = [];
+
+        if (status) {
+            queryStr += ' WHERE verification_status = ?';
+            params.push(status === 'pending' ? 'pending' : status);
+        }
+
+        queryStr += ' ORDER BY payment_date DESC LIMIT 100';
+
+        const result = await query(queryStr, params);
         res.json({ payments: result.rows });
     } catch (error) {
         console.error('Error al obtener pagos:', error);
@@ -554,11 +643,47 @@ export const uploadYapeQR = async (req, res) => {
 
 export const getReports = async (req, res) => {
     try {
-        const totalResult = await query('SELECT COALESCE(SUM(amount), 0) as total FROM payments');
+        // 1. Total histórico recaudado
+        const totalResult = await query('SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE verification_status = "verified"');
+        const totalCollected = parseFloat(totalResult.rows[0].total).toFixed(2);
+
+        // 2. Recaudación por mes (últimos 6 meses)
+        const monthlyResult = await query(`
+            SELECT 
+                DATE_FORMAT(payment_date, '%Y-%m') as month_id,
+                DATE_FORMAT(payment_date, '%M') as month_name,
+                SUM(amount) as total
+            FROM payments
+            WHERE verification_status = "verified"
+            GROUP BY month_id, month_name
+            ORDER BY month_id DESC
+            LIMIT 6
+        `);
+
+        // 3. Desempeño por cobrador
+        const collectorResult = await query(`
+            SELECT 
+                c.full_name,
+                COUNT(p.id) as payments_count,
+                SUM(p.amount) as total_collected
+            FROM collectors c
+            LEFT JOIN payments p ON c.id = p.collector_id AND p.verification_status = "verified"
+            GROUP BY c.id, c.full_name
+            ORDER BY total_collected DESC
+        `);
+
+        // 4. Resumen de deudas
+        const debtSummaryResult = await query(`
+            SELECT status, COUNT(*) as count, SUM(amount) as total
+            FROM debts
+            GROUP BY status
+        `);
+
         res.json({
-            totalCollected: parseFloat(totalResult.rows[0].total).toFixed(2),
-            collectorPerformance: [],
-            pendingVerification: { count: 0, total: '0.00' }
+            totalCollected,
+            monthlyCollection: monthlyResult.rows,
+            collectorPerformance: collectorResult.rows,
+            debtSummary: debtSummaryResult.rows
         });
     } catch (error) {
         console.error('Error al generar reportes:', error);
