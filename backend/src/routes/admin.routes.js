@@ -22,8 +22,6 @@ import {
     getDashboardStats,
     getPendingVerifications,
     rejectPayment,
-    getPendingVerifications,
-    rejectPayment,
     downloadReceipt,
     assignCollectorToLocations
 } from '../controllers/admin.controller.js';
