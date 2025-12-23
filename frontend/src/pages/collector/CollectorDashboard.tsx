@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import html2canvas from 'html2canvas';
 
@@ -108,8 +108,7 @@ const styles = {
     tableWrapper: {
         backgroundColor: '#ffffff',
         borderRadius: '1rem',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        overflow: 'hidden',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
         border: '1px solid #e5e7eb',
     },
     clientMain: {
@@ -343,7 +342,8 @@ const styles = {
 };
 
 export default function CollectorDashboard() {
-    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+    const [user, setUser] = useState<any>(null);
     const [clients, setClients] = useState<Client[]>([]);
     const [stats, setStats] = useState({ todayTotal: "0.00", monthTotal: "0.00", todayVisits: 0 });
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -354,8 +354,24 @@ export default function CollectorDashboard() {
     const receiptRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        // Load user from localStorage
+        const userData = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+
+        if (!userData || !token) {
+            navigate('/cobrador/login');
+            return;
+        }
+
+        try {
+            setUser(JSON.parse(userData));
+        } catch (e) {
+            navigate('/cobrador/login');
+            return;
+        }
+
         loadData();
-    }, []);
+    }, [navigate]);
 
     const loadData = async () => {
         try {
@@ -367,12 +383,18 @@ export default function CollectorDashboard() {
             setStats(statsRes.data);
         } catch (error) {
             console.error('Error cargando datos:', error);
+            if ((error as any).response?.status === 401 || (error as any).response?.status === 403) {
+                navigate('/cobrador/login');
+            }
         }
     };
 
     const handleLogout = () => {
         if (window.confirm('¿Cerrar sesión?')) {
-            logout();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('userType');
+            navigate('/cobrador/login');
         }
     };
 
@@ -427,10 +449,15 @@ export default function CollectorDashboard() {
     const handleDownloadReceipt = async () => {
         if (receiptRef.current) {
             try {
-                const canvas = await html2canvas(receiptRef.current);
+                const canvas = await html2canvas(receiptRef.current, {
+                    scale: 2, // Mejora calidad
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff'
+                });
                 const link = document.createElement('a');
                 link.download = `Recibo-${receiptData?.paymentId || 'Venta'}.png`;
-                link.href = canvas.toDataURL();
+                link.href = canvas.toDataURL('image/png');
                 link.click();
             } catch (err) {
                 console.error('Error generando imagen:', err);
@@ -447,7 +474,7 @@ export default function CollectorDashboard() {
             `📅 Fecha: ${receiptData.date}\n` +
             `🧾 Recibo #: ${receiptData.paymentId}\n` +
             `👤 Cliente: ${selectedClient.full_name}\n` +
-            `💰 Monto: S/ ${parseFloat(receiptData.amount).toFixed(2)}\n` +
+            `💰 Monto: S/ ${parseFloat(receiptData.amount || '0').toFixed(2)}\n` +
             `💳 Método: ${paymentMethod === 'cash' ? 'EFECTIVO' : 'YAPE'}\n` +
             `--------------------------------\n` +
             `¡Gracias por su pago!`;
@@ -478,7 +505,7 @@ export default function CollectorDashboard() {
                     <div style={styles.headerFlex}>
                         <div>
                             <h2 style={styles.headerTitle}>Portal del Cobrador</h2>
-                            <p style={styles.headerSub}>Bienvenido, {user?.fullName}</p>
+                            <p style={styles.headerSub}>Bienvenido, {user?.fullName || 'Cobrador'}</p>
                         </div>
                         <button onClick={handleLogout} className="btn btn-outline" style={styles.logoutBtn} title="Cerrar sesión">
                             Cerrar Sesión
