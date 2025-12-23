@@ -158,7 +158,7 @@ export default function CheckDebt() {
                     fontSize: 'var(--font-size-sm)',
                     textShadow: '0 2px 4px rgba(0,0,0,0.3)'
                 }}>
-                    © 2024 MIRAMAX Internet - Servicio al Cliente
+                    © 2026 MIRAMAX Internet - Servicio al Cliente
                 </p>
             </div>
             <SupportChatbot />
