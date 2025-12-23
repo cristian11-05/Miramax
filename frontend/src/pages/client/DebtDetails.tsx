@@ -17,6 +17,7 @@ interface ClientData {
         month: string;
         year: number;
         amount: string;
+        dueDate: string;
     }>;
     lastPayment: string | null;
 }
@@ -165,7 +166,7 @@ export default function DebtDetails() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {data.pendingDebts.map((debt) => (
+                                            {data.pendingDebts.map((debt: any) => (
                                                 <tr key={debt.id}>
                                                     <td>
                                                         <div style={{ fontWeight: 600 }}>{debt.month} {debt.year}</div>
@@ -173,10 +174,10 @@ export default function DebtDetails() {
                                                     </td>
                                                     <td>
                                                         <div style={{
-                                                            color: new Date(debt.dueDate) < new Date() ? 'var(--error)' : 'var(--gray-700)',
+                                                            color: new Date(debt.dueDate + 'T12:00:00') < new Date() ? 'var(--error)' : 'var(--gray-700)',
                                                             fontWeight: 600
                                                         }}>
-                                                            {new Date(debt.dueDate).toLocaleDateString('es-PE', { day: '2-digit', month: 'long' })}
+                                                            {new Date(debt.dueDate + 'T12:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: 'long' })}
                                                         </div>
                                                         <div style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Vence el día 7</div>
                                                     </td>
