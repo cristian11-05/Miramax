@@ -1,0 +1,106 @@
+import { query } from '../config/database.js';
+
+/**
+ * Get aggregated earnings reports: Daily, Monthly, and Annual
+ */
+export const getEarningsStats = async (req, res) => {
+    try {
+        // 1. Daily Earnings (Last 30 days)
+        const dailyResult = await query(`
+            SELECT 
+                DATE(payment_date) as date,
+                SUM(amount) as total
+            FROM payments
+            WHERE verification_status = 'verified'
+              AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            GROUP BY DATE(payment_date)
+            ORDER BY date ASC
+        `);
+
+        // 2. Monthly Earnings (Last 12 months)
+        const monthlyResult = await query(`
+            SELECT 
+                DATE_FORMAT(payment_date, '%Y-%m') as month,
+                SUM(amount) as total
+            FROM payments
+            WHERE verification_status = 'verified'
+              AND payment_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+            GROUP BY month
+            ORDER BY month ASC
+        `);
+
+        // 3. Annual Earnings
+        const annualResult = await query(`
+            SELECT 
+                YEAR(payment_date) as year,
+                SUM(amount) as total
+            FROM payments
+            WHERE verification_status = 'verified'
+            GROUP BY year
+            ORDER BY year ASC
+        `);
+
+        res.json({
+            daily: dailyResult.rows,
+            monthly: monthlyResult.rows,
+            annual: annualResult.rows
+        });
+    } catch (error) {
+        console.error('Error in getEarningsStats:', error);
+        res.status(500).json({ error: 'Error al obtener estadísticas de ganancias.' });
+    }
+};
+
+/**
+ * Get detailed collector performance reports
+ */
+export const getCollectorsPerformance = async (req, res) => {
+    try {
+        const result = await query(`
+            SELECT 
+                c.id,
+                c.full_name as name,
+                c.zone,
+                COUNT(p.id) as total_payments,
+                COALESCE(SUM(p.amount), 0) as total_collected,
+                (SELECT COUNT(*) FROM clients cl WHERE cl.collector_id = c.id) as assigned_clients
+            FROM collectors c
+            LEFT JOIN payments p ON c.id = p.collector_id AND p.verification_status = 'verified'
+            GROUP BY c.id, c.full_name, c.zone
+            ORDER BY total_collected DESC
+        `);
+
+        res.json({ collectors: result.rows });
+    } catch (error) {
+        console.error('Error in getCollectorsPerformance:', error);
+        res.status(500).json({ error: 'Error al obtener rendimiento de cobradores.' });
+    }
+};
+
+/**
+ * System Data Reset (Admin only)
+ */
+export const resetSystemData = async (req, res) => {
+    try {
+        // Security check should be in middleware, but let's double check here
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Acceso denegado.' });
+        }
+
+        console.log('🚮 Iniciando reinicio de datos por petición de admin...');
+
+        await query('SET FOREIGN_KEY_CHECKS = 0');
+        await query('TRUNCATE TABLE audit_logs');
+        await query('TRUNCATE TABLE whatsapp_history');
+        await query('TRUNCATE TABLE payments');
+        await query('TRUNCATE TABLE debts');
+        await query('TRUNCATE TABLE clients');
+        await query('TRUNCATE TABLE collectors');
+        await query('SET FOREIGN_KEY_CHECKS = 1');
+
+        res.json({ success: true, message: 'Todos los datos de negocio han sido eliminados correctamente.' });
+    } catch (error) {
+        console.error('Error in resetSystemData:', error);
+        res.status(500).json({ error: 'Error al reiniciar el sistema.' });
+    }
+};

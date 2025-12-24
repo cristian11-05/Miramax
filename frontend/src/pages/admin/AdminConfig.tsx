@@ -42,7 +42,9 @@ const styles = {
     wsStatus: { padding: '1.5rem', backgroundColor: '#f0fdf4', borderRadius: '1rem', border: '1px solid #dcfce7', marginBottom: '1.5rem' },
     wsStatusTitle: { fontSize: '1rem', fontWeight: 700, color: '#166534', marginBottom: '0.5rem' },
     statusDot: { width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem' },
-    dot: { width: '10px', height: '10px', backgroundColor: '#22c55e', borderRadius: '50%' }
+    dot: { width: '10px', height: '10px', backgroundColor: '#22c55e', borderRadius: '50%' },
+    dangerCard: { padding: '2rem', borderRadius: '1.5rem', border: '2px solid #fee2e2', backgroundColor: '#fffafb', marginTop: '2rem' },
+    dangerTitle: { color: '#991b1b', fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }
 };
 
 const AdminConfig: React.FC = () => {
@@ -110,6 +112,29 @@ const AdminConfig: React.FC = () => {
         } catch (error) {
             console.error('Error uploading QR:', error);
             alert('Error al subir el QR.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleResetSystem = async () => {
+        const confirm1 = window.confirm('⚠️ ATENCIÓN: Estás a punto de borrar TODOS los clientes, cobradores, deudas y pagos. Esta acción no se puede deshacer. ¿Deseas continuar?');
+        if (!confirm1) return;
+
+        const confirm2 = window.prompt('Para confirmar el reinicio total, escribe "REINICIAR SISTEMA":');
+        if (confirm2 !== 'REINICIAR SISTEMA') {
+            alert('Confirmación incorrecta. El sistema no ha sido reiniciado.');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            await api.post('/admin/system/reset');
+            alert('¡El sistema ha sido reiniciado con éxito! Todos los datos han sido eliminados.');
+            window.location.reload();
+        } catch (error) {
+            console.error('Error resetting system:', error);
+            alert('Error al reiniciar el sistema. Verifica los permisos.');
         } finally {
             setSaving(false);
         }
@@ -238,6 +263,25 @@ const AdminConfig: React.FC = () => {
                             />
                         </div>
                         <p style={{ ...styles.hintText, marginTop: '1rem', fontStyle: 'italic' }}>Las opciones de personalización de mensajes estarán disponibles en la próxima actualización.</p>
+                    </div>
+                </div>
+
+                {/* Danger Zone */}
+                <div style={styles.dangerCard}>
+                    <h2 style={styles.dangerTitle}>⚠️ Zona de Peligro</h2>
+                    <div className="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p className="fw-bold m-0 text-danger">Reiniciar Base de Datos</p>
+                            <p className="text-muted small m-0">Borra de forma permanente todos los clientes, deudas y pagos. No afecta a tu usuario administrador.</p>
+                        </div>
+                        <button
+                            onClick={handleResetSystem}
+                            className="btn btn-danger px-4"
+                            disabled={saving}
+                            style={{ borderRadius: '0.75rem' }}
+                        >
+                            {saving ? 'Procesando...' : 'Borrar Todo'}
+                        </button>
                     </div>
                 </div>
             </div>

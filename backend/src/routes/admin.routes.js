@@ -25,6 +25,11 @@ import {
     downloadReceipt,
     assignCollectorToLocations
 } from '../controllers/admin.controller.js';
+import {
+    getEarningsStats,
+    getCollectorsPerformance,
+    resetSystemData
+} from '../controllers/reports.controller.js';
 import { authenticateToken, authorizeRole } from '../middlewares/auth.middleware.js';
 import { upload } from '../services/upload.service.js';
 
@@ -73,5 +78,10 @@ router.post('/config/yape-qr', requireAdmin, upload.single('qr'), uploadYapeQR);
 
 // ========== REPORTES ==========
 router.get('/reports', requireAuth, getReports);
+router.get('/reports/earnings', requireAuth, getEarningsStats);
+router.get('/reports/collectors', requireAuth, getCollectorsPerformance);
+
+// ========== SISTEMA ==========
+router.post('/system/reset', requireAdmin, resetSystemData);
 
 export default router;
