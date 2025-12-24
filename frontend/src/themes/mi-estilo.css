@@ -1,0 +1,37 @@
+/* 
+  🎨 MIRAMAX - PANEL DE DISEÑO
+  --------------------------------------------------
+  ¡Hola! Aquí puedes cambiar el diseño de tu web fácilmente.
+  Solo cambia los códigos de color (ej: #FF6600) o los píxeles (ej: 10px).
+*/
+
+:root {
+  /* 🎨 COLORES PRINCIPALES */
+  --tema-principal: #FF6600;
+  /* Color de botones y detalles (Naranja Miramax) */
+  --tema-principal-oscuro: #E55A00;
+  /* Color al pasar el mouse por botones */
+  --tema-secundario: #1A1A1A;
+  /* Color de textos fuertes y encabezados */
+  --tema-fondo: #F9FAFB;
+  /* Color del fondo de la página */
+
+  /* ❄️ DECORACIONES (Opcional) */
+  --decoracion-navidad: none;
+  /* Cambia a 'block' para mostrar nieve (si se implementa) */
+
+  /* 🖋️ TIPOGRAFÍA */
+  --fuente-base: 'Inter', sans-serif;
+  --color-texto: #111827;
+
+  /* 📐 BORDES Y FORMAS */
+  --redondeado-botones: 0.75rem;
+  /* Qué tan redondos son los botones */
+  --redondeado-tarjetas: 1.25rem;
+  /* Qué tan redondas son las tarjetas/boxes */
+
+  /* 💡 ESTADOS */
+  --color-exito: #10B981;
+  --color-error: #EF4444;
+  --color-alerta: #F59E0B;
+}
