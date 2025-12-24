@@ -222,7 +222,6 @@ export default function YapePayment() {
                                 marginBottom: 'var(--spacing-4)'
                             }}>
                                 <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Yapear a nombre de MIRAMAX</div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>918 762 620</div>
                             </div>
 
                             {qrCode ? (
@@ -264,7 +263,7 @@ export default function YapePayment() {
                             <h4 style={{ marginBottom: 'var(--spacing-3)' }}>📱 Pasos para pagar:</h4>
                             <ol style={{ paddingLeft: 'var(--spacing-5)', color: 'var(--gray-700)' }}>
                                 <li>Abre la app de Yape</li>
-                                <li>Escanea el código QR o usa el número <strong>918 762 620</strong></li>
+                                <li>Escanea el código QR de arriba</li>
                                 <li>Verifica que el monto sea <strong>S/ {amount}</strong></li>
                                 <li>Confirma el pago</li>
                                 <li>Toma captura del voucher</li>

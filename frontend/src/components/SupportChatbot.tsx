@@ -252,7 +252,7 @@ const SupportChatbot: React.FC<SupportChatbotProps> = ({
             `*Estado:* No solucionado.`;
 
         const encodedMessage = encodeURIComponent(message);
-        window.open(`https://wa.me/51918762620?text=${encodedMessage}`, '_blank');
+        window.open(`https://wa.me/51994371164?text=${encodedMessage}`, '_blank');
     };
 
     const nodes: Record<string, ChatNode> = {

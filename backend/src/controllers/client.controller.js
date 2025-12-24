@@ -75,8 +75,8 @@ export const getYapeInfo = async (req, res) => {
         const yapeNumber = result.rows.length > 0 ? result.rows[0].config_value : '999999999';
 
         res.json({
-            yapeNumber: yapeNumber,
-            qrUrl: '' // Se generará dinámicamente en el frontend
+            yapeNumber: '', // No longer using number for Yape as per request
+            qrUrl: '/images/qryape.png' // New static QR
         });
     } catch (error) {
         console.error('Error al obtener info de Yape:', error);
@@ -183,7 +183,7 @@ export const getWhatsAppURL = async (req, res) => {
 
         // FORCING NUMBER AS PER REQUEST
         // FORCING NUMBER AS PER REQUEST
-        const systemPhone = '918762620';
+        const systemPhone = '994371164';
 
         // Construir mensaje
         // Construir mensaje detallado
