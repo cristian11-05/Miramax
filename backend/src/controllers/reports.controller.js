@@ -52,11 +52,12 @@ export const getEarningsStats = async (req, res) => {
 };
 
 /**
- * Get detailed collector performance reports
+ * Get detailed collector performance reports with monthly breakdown
  */
 export const getCollectorsPerformance = async (req, res) => {
     try {
-        const result = await query(`
+        // 1. General performance
+        const generalResult = await query(`
             SELECT 
                 c.id,
                 c.full_name as name,
@@ -70,7 +71,27 @@ export const getCollectorsPerformance = async (req, res) => {
             ORDER BY total_collected DESC
         `);
 
-        res.json({ collectors: result.rows });
+        // 2. Monthly breakdown per collector (Last 6 months)
+        const monthlyResult = await query(`
+            SELECT 
+                p.collector_id,
+                DATE_FORMAT(p.payment_date, '%Y-%m') as month,
+                SUM(p.amount) as total
+            FROM payments p
+            WHERE p.verification_status = 'verified'
+              AND p.collector_id IS NOT NULL
+              AND p.payment_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+            GROUP BY p.collector_id, month
+            ORDER BY month ASC
+        `);
+
+        // Map results
+        const collectors = generalResult.rows.map(col => ({
+            ...col,
+            monthly_history: monthlyResult.rows.filter(m => m.collector_id === col.id)
+        }));
+
+        res.json({ collectors });
     } catch (error) {
         console.error('Error in getCollectorsPerformance:', error);
         res.status(500).json({ error: 'Error al obtener rendimiento de cobradores.' });
