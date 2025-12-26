@@ -83,7 +83,7 @@ export const getDashboardStats = async (req, res) => {
 
 export const getAllClients = async (req, res) => {
     try {
-        const result = await query('SELECT * FROM clients ORDER BY registration_date DESC LIMIT 100');
+        const result = await query('SELECT * FROM clients ORDER BY sector ASC, address ASC LIMIT 100');
         res.json({ clients: result.rows });
     } catch (error) {
         console.error('Error al obtener clientes:', error);
@@ -94,9 +94,9 @@ export const getAllClients = async (req, res) => {
 export const createClient = async (req, res) => {
     try {
         const {
-            dni, fullName, phone, secondPhone,
-            region, province, district, caserio, zone,
-            address, contractNumber,
+            code, dni, fullName, phone, secondPhone,
+            region, province, district, caserio, zone, sector,
+            address, addressDetails, contractNumber,
             planType, plan, internetSpeed, cost,
             startDate, paymentDay
         } = req.body;
@@ -125,16 +125,16 @@ export const createClient = async (req, res) => {
 
         const insertMeta = await query(`
             INSERT INTO clients (
-                dni, full_name, phone, second_phone,
-                region, province, district, caserio, zone,
-                address, contract_number,
+                code, dni, full_name, phone, second_phone,
+                region, province, district, caserio, zone, sector,
+                address, address_details, contract_number,
                 plan_type, plan, internet_speed, cost,
                 start_date, payment_day, collector_id, service_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
         `, [
-            dni, fullName, phone || null, secondPhone || null,
-            region || null, province || null, district || null, caserio || null, assignedZone || null,
-            address || null, contractNumber || null,
+            code || null, dni, fullName, phone || null, secondPhone || null,
+            region || null, province || null, district || null, caserio || null, assignedZone || null, sector || null,
+            address || null, addressDetails || null, contractNumber || null,
             planType || 'INTERNET', plan || (planType === 'INTERNET' ? `Internet ${internetSpeed}` : 'Plan Básico'), internetSpeed || null, cost || 0,
             startDate || new Date(), paymentDay || 5, collectorId || null
         ]);
@@ -162,7 +162,7 @@ export const createClient = async (req, res) => {
     } catch (error) {
         console.error('Error al crear cliente:', error);
         if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ error: 'El DNI ya está registrado.' });
+            return res.status(400).json({ error: 'El DNI o Código ya está registrado.' });
         }
         res.status(500).json({ error: 'Error al crear cliente.' });
     }
@@ -172,9 +172,9 @@ export const updateClient = async (req, res) => {
     try {
         const { id } = req.params;
         const {
-            dni, fullName, phone, secondPhone,
-            region, province, district, caserio, zone,
-            address, contractNumber,
+            code, dni, fullName, phone, secondPhone,
+            region, province, district, caserio, zone, sector,
+            address, addressDetails, contractNumber,
             planType, plan, internetSpeed, cost,
             paymentDay, service_status
         } = req.body;
@@ -182,16 +182,16 @@ export const updateClient = async (req, res) => {
         await query(`
             UPDATE clients 
             SET 
-                dni = ?, full_name = ?, phone = ?, second_phone = ?,
-                region = ?, province = ?, district = ?, caserio = ?, zone = ?,
-                address = ?, contract_number = ?,
+                code = ?, dni = ?, full_name = ?, phone = ?, second_phone = ?,
+                region = ?, province = ?, district = ?, caserio = ?, zone = ?, sector = ?,
+                address = ?, address_details = ?, contract_number = ?,
                 plan_type = ?, plan = ?, internet_speed = ?, cost = ?,
                 payment_day = ?, service_status = COALESCE(?, service_status)
             WHERE id = ?
         `, [
-            dni, fullName, phone, secondPhone || null,
-            region || null, province || null, district || null, caserio || null, zone || null,
-            address || null, contractNumber || null,
+            code || null, dni, fullName, phone, secondPhone || null,
+            region || null, province || null, district || null, caserio || null, zone || null, sector || null,
+            address || null, addressDetails || null, contractNumber || null,
             planType || 'INTERNET', plan || null, internetSpeed || null, cost || 0,
             paymentDay || 5, service_status || null, id
         ]);
@@ -200,7 +200,7 @@ export const updateClient = async (req, res) => {
     } catch (error) {
         console.error('Error al actualizar cliente:', error);
         if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ error: 'El DNI ya está registrado por otro cliente.' });
+            return res.status(400).json({ error: 'El DNI o Código ya está registrado por otro cliente.' });
         }
         res.status(500).json({ error: 'Error al actualizar cliente: ' + error.message });
     }

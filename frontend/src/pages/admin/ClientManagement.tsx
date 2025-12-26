@@ -5,6 +5,7 @@ import { ubigeoData, regions, getProvinces, getDistricts, getCaserios } from '..
 
 interface Client {
     id: number;
+    code?: string; // Legacy ID
     dni: string;
     full_name: string;
     phone: string;
@@ -14,7 +15,9 @@ interface Client {
     district?: string;
     caserio?: string;
     zone?: string;
-    address: string;
+    sector?: string; // New Sector field
+    address: string; // Main Street
+    address_details?: string; // Number + Reference
     contract_number?: string;
     plan_type: 'INTERNET' | 'CABLE' | 'DUO';
     plan: string;
@@ -33,6 +36,7 @@ export default function ClientManagement() {
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState<number | null>(null);
     const [formData, setFormData] = useState({
+        code: '',
         dni: '',
         fullName: '',
         phone: '',
@@ -41,8 +45,10 @@ export default function ClientManagement() {
         province: 'Otuzco',
         district: 'Mache',
         caserio: '',
-        zone: '', // Optional override
-        address: '',
+        zone: '',
+        sector: '',
+        address: '', // Calle
+        addressDetails: '', // N° + Referencia
         contractNumber: '',
         planType: 'INTERNET',
         planName: '',
@@ -74,8 +80,9 @@ export default function ClientManagement() {
 
     const resetForm = () => {
         setFormData({
-            dni: '', fullName: '', phone: '', secondPhone: '',
-            region: 'La Libertad', province: 'Otuzco', district: 'Mache', caserio: '', address: '', zone: '',
+            code: '', dni: '', fullName: '', phone: '', secondPhone: '',
+            region: 'La Libertad', province: 'Otuzco', district: 'Mache', caserio: '',
+            address: '', addressDetails: '', zone: '', sector: '',
             planType: 'INTERNET', internetSpeed: '20MB', planName: '', cost: '50',
             contractNumber: '', paymentDay: '5'
         });
@@ -91,6 +98,7 @@ export default function ClientManagement() {
         const isCustomCaserio = client.caserio && !caserioList.includes(client.caserio);
 
         setFormData({
+            code: client.code || '',
             dni: client.dni,
             fullName: client.full_name,
             phone: client.phone || '',
@@ -100,12 +108,14 @@ export default function ClientManagement() {
             district: district,
             caserio: isCustomCaserio ? 'OTRO' : (client.caserio || ''),
             // @ts-ignore
-            customCaserio: isCustomCaserio ? client.caserio : '', // Store actual value if custom
+            customCaserio: isCustomCaserio ? client.caserio : '',
             address: client.address || '',
+            addressDetails: client.address_details || '',
             zone: client.zone || '',
+            sector: client.sector || '',
             planType: client.plan_type || 'INTERNET',
             internetSpeed: client.internet_speed || '20MB',
-            planName: client.plan || '', // Use planName to match state
+            planName: client.plan || '',
             cost: (client.cost || 50).toString(),
             contractNumber: client.contract_number || '',
             paymentDay: (client.payment_day || 5).toString()
@@ -175,31 +185,16 @@ export default function ClientManagement() {
         getCaserios: (region: string, province: string, district: string) => getCaserios(region, province, district)
     });
 
-    // Smart Learning: Update available locations based on existing clients
     useEffect(() => {
-        const learnedData = JSON.parse(JSON.stringify(ubigeoData)); // Deep copy base data
+        const learnedData = JSON.parse(JSON.stringify(ubigeoData));
 
         clients.forEach(client => {
             if (!client.region) return;
-
-            // Ensure region exists
-            if (!learnedData[client.region]) {
-                learnedData[client.region] = {};
-            }
-
-            // Ensure province exists
+            if (!learnedData[client.region]) learnedData[client.region] = {};
             if (client.province) {
-                if (!learnedData[client.region][client.province]) {
-                    learnedData[client.region][client.province] = {};
-                }
-
-                // Ensure district exists
+                if (!learnedData[client.region][client.province]) learnedData[client.region][client.province] = {};
                 if (client.district) {
-                    if (!learnedData[client.region][client.province][client.district]) {
-                        learnedData[client.region][client.province][client.district] = [];
-                    }
-
-                    // Ensure caserio exists
+                    if (!learnedData[client.region][client.province][client.district]) learnedData[client.region][client.province][client.district] = [];
                     if (client.caserio && !learnedData[client.region][client.province][client.district].includes(client.caserio)) {
                         learnedData[client.region][client.province][client.district].push(client.caserio);
                     }
@@ -207,7 +202,6 @@ export default function ClientManagement() {
             }
         });
 
-        // Helper functions using the learned data
         setAvailableLocations({
             regions: Object.keys(learnedData),
             getProvinces: (region: string) => region && learnedData[region] ? Object.keys(learnedData[region]) : [],
@@ -219,36 +213,25 @@ export default function ClientManagement() {
 
     const filteredClients = clients.filter(c =>
         c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.dni.includes(searchTerm)
+        c.dni.includes(searchTerm) ||
+        (c.sector && c.sector.toLowerCase().includes(searchTerm.toLowerCase()))
     );
+
+    if (loading) return <div className="p-4 text-center">Cargando...</div>;
 
     return (
         <div className="page-wrapper">
-            {/* Header */}
             <div className="gradient-header">
                 <div className="container">
                     <div className="header-content">
                         <div>
                             <h1 className="page-title">Gestión de Clientes</h1>
                             <div className="header-subtitle">
-                                <button
-                                    onClick={() => navigate('/admin/dashboard')}
-                                    className="back-button"
-                                >
-                                    ← Volver al Dashboard
-                                </button>
+                                <button onClick={() => navigate('/admin/dashboard')} className="back-button">← Volver al Dashboard</button>
                                 <span className="header-description">Administración de cartera de clientes</span>
                             </div>
                         </div>
-                        <button
-                            onClick={() => {
-                                setIsEditing(false);
-                                setEditId(null);
-                                resetForm();
-                                setShowModal(true);
-                            }}
-                            className="action-button"
-                        >
+                        <button onClick={() => { setIsEditing(false); setEditId(null); resetForm(); setShowModal(true); }} className="action-button">
                             + Nuevo Cliente
                         </button>
                     </div>
@@ -256,13 +239,12 @@ export default function ClientManagement() {
             </div>
 
             <div className="container">
-                {/* Search and Actions */}
                 <div className="search-container">
                     <div className="card search-card">
                         <span className="search-icon">🔍</span>
                         <input
                             type="text"
-                            placeholder="Buscar por DNI, Nombre o Caserío..."
+                            placeholder="Buscar por DNI, Nombre o Sector..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="search-input"
@@ -270,152 +252,116 @@ export default function ClientManagement() {
                     </div>
                 </div>
 
-                {/* Table */}
                 <div className="card table-container">
                     <div className="table-scroll">
                         <table className="table table-full-width">
                             <thead className="table-header">
                                 <tr>
-                                    <th className="table-th-dni">DNI</th>
+                                    <th className="table-th-dni">Código / DNI</th>
                                     <th className="table-th-client">Cliente</th>
-                                    <th className="table-th-location">Ubicación</th>
-                                    <th className="table-th-plan">Plan</th>
-                                    <th className="table-th-cost">Costo</th>
-                                    <th className="table-th-status">Estado</th>
+                                    <th className="table-th-location">Ubicación (Sector)</th>
+                                    <th className="table-th-plan">Dirección</th>
+                                    <th className="table-th-cost">Plan/Costo</th>
                                     <th className="table-th-actions">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredClients.map(client => (
                                     <tr key={client.id} className="table-row">
-                                        <td className="cell-dni">{client.dni}</td>
+                                        <td className="cell-dni">
+                                            <div className="fw-bold text-primary">{client.code || '-'}</div>
+                                            <div className="small text-muted">{client.dni}</div>
+                                        </td>
                                         <td>
                                             <div className="cell-title">{client.full_name}</div>
                                             <div className="cell-subtitle">
                                                 <span>📱 {client.phone}</span>
+                                                {client.second_phone && <span className="ms-1">/ {client.second_phone}</span>}
                                             </div>
                                         </td>
                                         <td>
-                                            <div className="cell-location-title">{client.caserio}</div>
-                                            <div className="cell-location-subtitle">{client.district} - {client.province}</div>
-                                            {client.address && <div className="cell-address">{client.address}</div>}
+                                            <div className="badge bg-light text-dark border">{client.sector || 'Sin Sector'}</div>
+                                            <div className="small text-muted mt-1">{client.caserio}</div>
                                         </td>
                                         <td>
-                                            <span className="badge badge-plan">
-                                                {client.plan_type}
-                                            </span>
-                                            <div className="cell-plan-detail">{client.internet_speed || '-'} {client.plan}</div>
+                                            <div className="fw-bold">{client.address}</div>
+                                            {client.address_details && <div className="small text-muted">{client.address_details}</div>}
                                         </td>
-                                        <td className="cell-cost">
-                                            S/ {parseFloat(client.cost.toString()).toFixed(2)}
-                                        </td>
-                                        <td className="cell-status">
-                                            <span className={`badge badge-status-lg ${client.service_status === 'active' ? 'badge-success' : 'badge-error'}`}>
-                                                {client.service_status === 'active' ? 'ACTIVO' : 'SUSPENDIDO'}
-                                            </span>
+                                        <td>
+                                            <span className="badge badge-plan">{client.plan_type}</span>
+                                            <div className="fw-bold mt-1">S/ {parseFloat(client.cost.toString()).toFixed(2)}</div>
                                         </td>
                                         <td className="cell-actions">
                                             <div className="actions-wrapper">
-                                                <button
-                                                    onClick={() => handleEditClick(client)}
-                                                    className="btn btn-sm btn-outline btn-icon-xs"
-                                                    title="Editar Cliente"
-                                                >
-                                                    ✏️
-                                                </button>
+                                                <button onClick={() => handleEditClick(client)} className="btn btn-sm btn-outline btn-icon-xs" title="Editar">✏️</button>
                                                 <button
                                                     className={`btn btn-sm btn-icon-xs ${client.service_status === 'active' ? 'btn-error' : 'btn-success'}`}
-                                                    title={client.service_status === 'active' ? 'Suspender Servicio' : 'Reactivar Servicio'}
+                                                    title={client.service_status === 'active' ? 'Suspender' : 'Reactivar'}
                                                     onClick={async () => {
                                                         const newStatus = client.service_status === 'active' ? 'suspended' : 'active';
-                                                        const action = client.service_status === 'active' ? 'suspender' : 'reactivar';
-                                                        if (!confirm(`¿Estás seguro de que deseas ${action} el servicio de ${client.full_name}?`)) return;
-
+                                                        if (!confirm(`¿Confirmar cambio de estado para ${client.full_name}?`)) return;
                                                         try {
-                                                            await api.put(`/admin/clients/${client.id}`, {
-                                                                dni: client.dni,
-                                                                fullName: client.full_name,
-                                                                phone: client.phone,
-                                                                secondPhone: client.second_phone,
-                                                                region: client.region,
-                                                                province: client.province,
-                                                                district: client.district,
-                                                                caserio: client.caserio,
-                                                                zone: client.zone,
-                                                                address: client.address,
-                                                                contractNumber: client.contract_number,
-                                                                planType: client.plan_type,
-                                                                plan: client.plan,
-                                                                internetSpeed: client.internet_speed,
-                                                                cost: client.cost,
-                                                                paymentDay: client.payment_day,
-                                                                service_status: newStatus
-                                                            });
-                                                            alert(`Servicio ${newStatus === 'active' ? 'reactivado' : 'suspendido'} exitosamente.`);
+                                                            await api.put(`/admin/clients/${client.id}`, { ...client, service_status: newStatus });
+                                                            alert('Estado actualizado.');
                                                             loadClients();
                                                         } catch (err: any) {
                                                             console.error(err);
-                                                            alert(err.response?.data?.error || 'Error al actualizar estado');
+                                                            alert('Error al actualizar estado');
                                                         }
                                                     }}
                                                 >
-                                                    {client.service_status === 'active' ? 'Suspender' : 'Reactivar'}
+                                                    {client.service_status === 'active' ? '🚫' : '✅'}
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
                                 {filteredClients.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="text-center" style={{ padding: '2rem' }}>No se encontraron clientes</td>
-                                    </tr>
+                                    <tr><td colSpan={6} className="text-center-p4">No se encontraron clientes</td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                {/* Modal Crear Cliente */}
+                {/* Modal */}
                 {showModal && (
                     <div className="modal-overlay">
-                        <div className="card modal-card">
+                        <div className="card modal-card modal-card-lg">
                             <div className="card-header modal-header">
                                 <h3 className="card-title">{isEditing ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}</h3>
-                                <button
-                                    onClick={() => setShowModal(false)}
-                                    className="modal-close-button"
-                                    aria-label="Cerrar"
-                                    type="button"
-                                >×</button>
+                                <button type="button" onClick={() => setShowModal(false)} className="modal-close-button">×</button>
                             </div>
                             <form onSubmit={handleSubmit} className="card-body">
                                 <h4 className="form-section-title">Datos Personales</h4>
                                 <div className="form-grid">
                                     <div className="form-group">
+                                        <label>Código (ID Legacy)</label>
+                                        <input name="code" value={formData.code} onChange={handleInputChange} className="form-input" placeholder="Opcional" title="Código Legacy" />
+                                    </div>
+                                    <div className="form-group">
                                         <label>DNI *</label>
                                         <input name="dni" value={formData.dni} onChange={handleInputChange} className="form-input" required maxLength={8} title="DNI" />
                                     </div>
-                                    <div className="form-group">
+                                    <div className="form-group span-2">
                                         <label>Nombre Completo *</label>
                                         <input name="fullName" value={formData.fullName} onChange={handleInputChange} className="form-input" required title="Nombre Completo" />
                                     </div>
                                     <div className="form-group">
-                                        <label>Teléfono 1</label>
-                                        <input name="phone" value={formData.phone} onChange={handleInputChange} className="form-input" title="Teléfono 1" />
+                                        <label>Teléfono 1 *</label>
+                                        <input name="phone" value={formData.phone} onChange={handleInputChange} className="form-input" required title="Teléfono 1" />
                                     </div>
                                     <div className="form-group">
-                                        <label>Teléfono 2</label>
+                                        <label>Teléfono 2 (Opcional)</label>
                                         <input name="secondPhone" value={formData.secondPhone} onChange={handleInputChange} className="form-input" title="Teléfono 2" />
                                     </div>
                                 </div>
 
-                                {/* Dynamic Location Components */}
                                 <h4 className="form-section-title">Ubicación y Zona</h4>
                                 <div className="form-grid">
-                                    {/* REGION */}
                                     <div className="form-group">
                                         <label>Región *</label>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <div className="form-row-group">
                                             {isCustom.region ? (
                                                 <input
                                                     name="region"
@@ -424,6 +370,7 @@ export default function ClientManagement() {
                                                     className="form-input"
                                                     placeholder="Ingrese nueva región"
                                                     autoFocus
+                                                    title="Nueva Región"
                                                 />
                                             ) : (
                                                 <select
@@ -440,11 +387,11 @@ export default function ClientManagement() {
                                                     }}
                                                     className="form-input"
                                                     required
-                                                    title="Región"
+                                                    title="Seleccionar Región"
                                                 >
                                                     <option value="">Seleccione Región</option>
                                                     {availableLocations.regions.map(r => <option key={r} value={r}>{r}</option>)}
-                                                    <option value="CUSTOM_NEW" style={{ fontWeight: 'bold', color: 'var(--primary)' }}>+ AGREGAR NUEVA REGIÓN</option>
+                                                    <option value="CUSTOM_NEW" className="text-primary-bold">+ AGREGAR NUEVA REGIÓN</option>
                                                 </select>
                                             )}
                                             {isCustom.region && (
@@ -458,10 +405,9 @@ export default function ClientManagement() {
                                         </div>
                                     </div>
 
-                                    {/* PROVINCE */}
                                     <div className="form-group">
                                         <label>Provincia *</label>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <div className="form-row-group">
                                             {isCustom.province ? (
                                                 <input
                                                     name="province"
@@ -470,6 +416,7 @@ export default function ClientManagement() {
                                                     className="form-input"
                                                     placeholder="Ingrese nueva provincia"
                                                     autoFocus
+                                                    title="Nueva Provincia"
                                                 />
                                             ) : (
                                                 <select
@@ -487,11 +434,11 @@ export default function ClientManagement() {
                                                     className="form-input"
                                                     disabled={!formData.region && !isCustom.region}
                                                     required
-                                                    title="Provincia"
+                                                    title="Seleccionar Provincia"
                                                 >
                                                     <option value="">Seleccione Provincia</option>
                                                     {availableLocations.getProvinces(formData.region).map(p => <option key={p} value={p}>{p}</option>)}
-                                                    <option value="CUSTOM_NEW" style={{ fontWeight: 'bold', color: 'var(--primary)' }}>+ AGREGAR NUEVA PROVINCIA</option>
+                                                    <option value="CUSTOM_NEW" className="text-primary-bold">+ AGREGAR NUEVA PROVINCIA</option>
                                                 </select>
                                             )}
                                             {isCustom.province && (
@@ -505,10 +452,9 @@ export default function ClientManagement() {
                                         </div>
                                     </div>
 
-                                    {/* DISTRICT */}
                                     <div className="form-group">
                                         <label>Distrito *</label>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <div className="form-row-group">
                                             {isCustom.district ? (
                                                 <input
                                                     name="district"
@@ -517,6 +463,7 @@ export default function ClientManagement() {
                                                     className="form-input"
                                                     placeholder="Ingrese nuevo distrito"
                                                     autoFocus
+                                                    title="Nuevo Distrito"
                                                 />
                                             ) : (
                                                 <select
@@ -534,11 +481,11 @@ export default function ClientManagement() {
                                                     className="form-input"
                                                     disabled={!formData.province && !isCustom.province}
                                                     required
-                                                    title="Distrito"
+                                                    title="Seleccionar Distrito"
                                                 >
                                                     <option value="">Seleccione Distrito</option>
                                                     {availableLocations.getDistricts(formData.region, formData.province).map(d => <option key={d} value={d}>{d}</option>)}
-                                                    <option value="CUSTOM_NEW" style={{ fontWeight: 'bold', color: 'var(--primary)' }}>+ AGREGAR NUEVO DISTRITO</option>
+                                                    <option value="CUSTOM_NEW" className="text-primary-bold">+ AGREGAR NUEVO DISTRITO</option>
                                                 </select>
                                             )}
                                             {isCustom.district && (
@@ -552,10 +499,9 @@ export default function ClientManagement() {
                                         </div>
                                     </div>
 
-                                    {/* CASERIO */}
                                     <div className="form-group">
                                         <label>Caserío / Localidad *</label>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <div className="form-row-group">
                                             {isCustom.caserio ? (
                                                 <input
                                                     name="caserio"
@@ -564,6 +510,7 @@ export default function ClientManagement() {
                                                     className="form-input"
                                                     placeholder="Ingrese nuevo caserío"
                                                     autoFocus
+                                                    title="Nuevo Caserío"
                                                 />
                                             ) : (
                                                 <select
@@ -581,11 +528,11 @@ export default function ClientManagement() {
                                                     className="form-input"
                                                     disabled={!formData.district && !isCustom.district}
                                                     required
-                                                    title="Caserío"
+                                                    title="Seleccionar Caserío"
                                                 >
                                                     <option value="">Seleccione Caserío</option>
                                                     {availableLocations.getCaserios(formData.region, formData.province, formData.district).map(c => <option key={c} value={c}>{c}</option>)}
-                                                    <option value="CUSTOM_NEW" style={{ fontWeight: 'bold', color: 'var(--primary)' }}>+ AGREGAR NUEVO CASERÍO</option>
+                                                    <option value="CUSTOM_NEW" className="text-primary-bold">+ AGREGAR NUEVO CASERÍO</option>
                                                 </select>
                                             )}
                                             {isCustom.caserio && (
@@ -598,13 +545,21 @@ export default function ClientManagement() {
                                             )}
                                         </div>
                                     </div>
+                                </div>
+
+                                <h4 className="form-section-title">Dirección Exacta</h4>
+                                <div className="form-grid">
                                     <div className="form-group">
-                                        <label>Dirección Exacta</label>
-                                        <input name="address" value={formData.address} onChange={handleInputChange} className="form-input" title="Dirección Exacta" />
+                                        <label>Dirección / Calle *</label>
+                                        <input name="address" value={formData.address} onChange={handleInputChange} className="form-input" required placeholder="Ej: Av. Chorrillos" title="Calle Principal" />
                                     </div>
                                     <div className="form-group">
-                                        <label>Zona (Asignación)</label>
-                                        <input name="zone" value={formData.zone} onChange={handleInputChange} className="form-input" placeholder="Zona de Cobranza" title="Zona" />
+                                        <label>N° / Referencia</label>
+                                        <input name="addressDetails" value={formData.addressDetails} onChange={handleInputChange} className="form-input" placeholder="Ej: Mz18 Lt12" title="Detalle" />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Sector / Zona *</label>
+                                        <input name="sector" value={formData.sector} onChange={handleInputChange} className="form-input" required placeholder="Ej: Usquil Centro" title="Sector" />
                                     </div>
                                 </div>
 
@@ -612,32 +567,20 @@ export default function ClientManagement() {
                                 <div className="form-grid">
                                     <div className="form-group">
                                         <label>Tipo de Plan</label>
-                                        <select name="planType" value={formData.planType} onChange={handleInputChange} className="form-input" title="Tipo de Plan">
+                                        <select name="planType" value={formData.planType} onChange={handleInputChange} className="form-input" title="Seleccionar Tipo de Plan">
                                             <option value="INTERNET">Internet</option>
                                             <option value="CABLE">Cable TV</option>
-                                            <option value="DUO">Dúo (Internet + Cable)</option>
+                                            <option value="DUO">Dúo</option>
                                         </select>
                                     </div>
-                                    {formData.planType !== 'CABLE' && (
-                                        <div className="form-group">
-                                            <label>Velocidad</label>
-                                            <select name="internetSpeed" value={formData.internetSpeed} onChange={handleInputChange} className="form-input" title="Velocidad">
-                                                <option value="10MB">10 MB</option>
-                                                <option value="20MB">20 MB</option>
-                                                <option value="30MB">30 MB</option>
-                                                <option value="50MB">50 MB</option>
-                                                <option value="100MB">100 MB</option>
-                                                <option value="200MB">200 MB</option>
-                                            </select>
-                                        </div>
-                                    )}
                                     <div className="form-group">
-                                        <label>Costo Mensual (S/)</label>
-                                        <input type="number" name="cost" value={formData.cost} onChange={handleInputChange} className="form-input" step="0.50" title="Costo Mensual" />
+                                        <label>Costo (S/)</label>
+                                        <input type="number" name="cost" value={formData.cost} onChange={handleInputChange} className="form-input" step="0.50" title="Costo del Plan" />
                                     </div>
                                     <div className="form-group">
                                         <label>Día de Pago</label>
-                                        <input type="number" name="paymentDay" value={formData.paymentDay} onChange={handleInputChange} className="form-input" max="31" min="1" title="Día de Pago" />
+                                        <input type="number" name="paymentDay" value={formData.paymentDay} onChange={handleInputChange} className="form-input" disabled title="Día de Pago" />
+                                        <small className="text-muted">Fijo: Día 7</small>
                                     </div>
                                 </div>
 
