@@ -121,20 +121,28 @@ const AdminConfig: React.FC = () => {
         const confirm1 = window.confirm('⚠️ ATENCIÓN: Estás a punto de borrar TODOS los clientes, cobradores, deudas y pagos. Esta acción no se puede deshacer. ¿Deseas continuar?');
         if (!confirm1) return;
 
-        const confirm2 = window.prompt('Para confirmar el reinicio total, escribe "REINICIAR SISTEMA":');
-        if (confirm2 !== 'REINICIAR SISTEMA') {
+        const password = window.prompt('Para confirmar el reinicio total, ingresa la clave de seguridad:');
+        if (!password) return;
+
+        if (password !== 'miramax.net') {
+            alert('Contraseña incorrecta. El sistema no ha sido reiniciado.');
+            return;
+        }
+
+        const confirm2 = window.prompt('ÚLTIMA CONFIRMACIÓN: Escribe "BORRAR TODO" para proceder:');
+        if (confirm2 !== 'BORRAR TODO') {
             alert('Confirmación incorrecta. El sistema no ha sido reiniciado.');
             return;
         }
 
         setSaving(true);
         try {
-            await api.post('/admin/system/reset');
+            await api.post('/admin/system/reset', { password });
             alert('¡El sistema ha sido reiniciado con éxito! Todos los datos han sido eliminados.');
             window.location.reload();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error resetting system:', error);
-            alert('Error al reiniciar el sistema. Verifica los permisos.');
+            alert(error.response?.data?.error || 'Error al reiniciar el sistema. Verifica los permisos.');
         } finally {
             setSaving(false);
         }

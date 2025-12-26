@@ -107,6 +107,11 @@ export const resetSystemData = async (req, res) => {
         if (req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Acceso denegado.' });
         }
+        const { password } = req.body;
+
+        if (password !== 'miramax.net') {
+            return res.status(403).json({ error: 'Contraseña de seguridad incorrecta.' });
+        }
 
         console.log('🚮 Iniciando reinicio de datos por petición de admin...');
 
