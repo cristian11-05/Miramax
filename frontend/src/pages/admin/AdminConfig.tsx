@@ -121,15 +121,20 @@ const AdminConfig: React.FC = () => {
         const confirm1 = window.confirm('⚠️ ATENCIÓN: Estás a punto de borrar TODOS los clientes, cobradores, deudas y pagos. Esta acción no se puede deshacer. ¿Deseas continuar?');
         if (!confirm1) return;
 
-        const password = window.prompt('Para confirmar el reinicio total, ingresa la clave de seguridad:');
-        if (!password) return;
+        const passwordInput = window.prompt('Para confirmar el reinicio total, ingresa la clave de seguridad:');
+        if (!passwordInput) return;
+
+        const password = passwordInput.trim();
 
         if (password !== 'miramax.net') {
             alert('Contraseña incorrecta. El sistema no ha sido reiniciado.');
             return;
         }
 
-        const confirm2 = window.prompt('ÚLTIMA CONFIRMACIÓN: Escribe "BORRAR TODO" para proceder:');
+        const confirm2Input = window.prompt('ÚLTIMA CONFIRMACIÓN: Escribe "BORRAR TODO" para proceder:');
+        if (!confirm2Input) return;
+
+        const confirm2 = confirm2Input.trim().toUpperCase();
         if (confirm2 !== 'BORRAR TODO') {
             alert('Confirmación incorrecta. El sistema no ha sido reiniciado.');
             return;

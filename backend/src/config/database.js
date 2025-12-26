@@ -39,7 +39,7 @@ if (process.env.DATABASE_URL) {
 export const query = async (text, params = []) => {
     const start = Date.now();
     try {
-        const [rows] = await pool.execute(text, params);
+        const [rows] = await pool.query(text, params);
         const duration = Date.now() - start;
         console.log('Query ejecutada', { text: text.substring(0, 50), duration, rows: rows.length || rows.affectedRows });
         return { rows };

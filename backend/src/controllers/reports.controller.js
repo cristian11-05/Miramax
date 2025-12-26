@@ -108,23 +108,45 @@ export const resetSystemData = async (req, res) => {
             return res.status(403).json({ error: 'Acceso denegado.' });
         }
         const { password } = req.body;
+        console.log('🔑 Intento de reinicio. Password recibido:', password ? 'SI' : 'NO');
 
         if (password !== 'miramax.net') {
+            console.log('❌ Password incorrecto');
             return res.status(403).json({ error: 'Contraseña de seguridad incorrecta.' });
         }
 
         console.log('🚮 Iniciando reinicio de datos por petición de admin...');
 
-        await query('SET FOREIGN_KEY_CHECKS = 0');
-        await query('TRUNCATE TABLE audit_logs');
-        await query('TRUNCATE TABLE whatsapp_history');
-        await query('TRUNCATE TABLE payments');
-        await query('TRUNCATE TABLE debts');
-        await query('TRUNCATE TABLE clients');
-        await query('TRUNCATE TABLE collectors');
-        await query('SET FOREIGN_KEY_CHECKS = 1');
+        try {
+            await query('SET FOREIGN_KEY_CHECKS = 0');
+            console.log('✅ FK Checks disabled');
 
-        res.json({ success: true, message: 'Todos los datos de negocio han sido eliminados correctamente.' });
+            await query('TRUNCATE TABLE audit_logs');
+            console.log('✅ audit_logs truncated');
+
+            await query('TRUNCATE TABLE whatsapp_history');
+            console.log('✅ whatsapp_history truncated');
+
+            await query('TRUNCATE TABLE payments');
+            console.log('✅ payments truncated');
+
+            await query('TRUNCATE TABLE debts');
+            console.log('✅ debts truncated');
+
+            await query('TRUNCATE TABLE clients');
+            console.log('✅ clients truncated');
+
+            await query('TRUNCATE TABLE collectors');
+            console.log('✅ collectors truncated');
+
+            await query('SET FOREIGN_KEY_CHECKS = 1');
+            console.log('✅ FK Checks enabled');
+
+            res.json({ success: true, message: 'Todos los datos de negocio han sido eliminados correctamente.' });
+        } catch (sqlError) {
+            console.error('❌ Error SQL durante el reinicio:', sqlError);
+            throw sqlError;
+        }
     } catch (error) {
         console.error('Error in resetSystemData:', error);
         res.status(500).json({ error: 'Error al reiniciar el sistema.' });
