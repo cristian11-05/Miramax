@@ -1,4 +1,4 @@
-import { query } from '../config/database.js';
+import { query, pool } from '../config/database.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { generateReceiptPDF } from '../services/receipt.service.js';
