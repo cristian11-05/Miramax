@@ -69,4 +69,5 @@ export const getClient = async () => {
     return connection;
 };
 
+export { pool };
 export default pool;
