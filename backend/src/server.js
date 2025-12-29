@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import clientRoutes from './routes/client.routes.js';
 import collectorRoutes from './routes/collector.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import { runAutoMigrations } from './services/migration.service.js';
 
 dotenv.config();
 
@@ -151,6 +152,9 @@ app.listen(PORT, async () => {
         console.log('🔄 Probando conexión a la base de datos...');
         const [rows] = await pool.query('SELECT 1 as connection_test');
         console.log('✅ Base de datos conectada exitosamente:', rows);
+
+        // Ejecutar migraciones automáticas
+        await runAutoMigrations();
     } catch (err) {
         console.error('❌ ERROR CRÍTICO: No se pudo conectar a la base de datos');
         console.error('Detalles:', {

@@ -136,7 +136,7 @@ export const createClient = async (req, res) => {
             region || null, province || null, district || null, caserio || null, assignedZone || null, sector || null,
             address || null, addressDetails || null, contractNumber || null,
             planType || 'INTERNET', plan || (planType === 'INTERNET' ? `Internet ${internetSpeed}` : 'Plan Básico'), internetSpeed || null, cost || 0,
-            startDate || new Date(), paymentDay || 5, collectorId || null
+            startDate || new Date(), paymentDay || 7, collectorId || null
         ]);
 
         const clientId = insertMeta.insertId || insertMeta.rows.insertId;
@@ -160,11 +160,11 @@ export const createClient = async (req, res) => {
 
         res.json({ success: true, message: 'Cliente creado exitosamente (con deuda del mes anterior generada).' });
     } catch (error) {
-        console.error('Error al crear cliente:', error);
+        console.error('❌ Error al crear cliente:', error);
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ error: 'El DNI o Código ya está registrado.' });
         }
-        res.status(500).json({ error: 'Error al crear cliente.' });
+        res.status(500).json({ error: 'Error al crear cliente: ' + error.message });
     }
 };
 
@@ -193,7 +193,7 @@ export const updateClient = async (req, res) => {
             region || null, province || null, district || null, caserio || null, zone || null, sector || null,
             address || null, addressDetails || null, contractNumber || null,
             planType || 'INTERNET', plan || null, internetSpeed || null, cost || 0,
-            paymentDay || 5, service_status || null, id
+            paymentDay || 7, service_status || null, id
         ]);
 
         res.json({ success: true, message: 'Cliente actualizado exitosamente.' });

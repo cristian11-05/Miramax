@@ -54,7 +54,7 @@ export default function ClientManagement() {
         planName: '',
         internetSpeed: '30MB',
         cost: '50.00',
-        paymentDay: '5'
+        paymentDay: '7'
     });
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -84,7 +84,7 @@ export default function ClientManagement() {
             region: 'La Libertad', province: 'Otuzco', district: 'Mache', caserio: '',
             address: '', addressDetails: '', zone: '', sector: '',
             planType: 'INTERNET', internetSpeed: '20MB', planName: '', cost: '50',
-            contractNumber: '', paymentDay: '5'
+            contractNumber: '', paymentDay: '7'
         });
         setIsEditing(false);
         setEditId(null);
