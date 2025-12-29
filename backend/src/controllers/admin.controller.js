@@ -171,13 +171,28 @@ export const createClient = async (req, res) => {
 export const updateClient = async (req, res) => {
     try {
         const { id } = req.params;
-        const {
-            code, dni, fullName, phone, secondPhone,
-            region, province, district, caserio, zone, sector,
-            address, addressDetails, contractNumber,
-            planType, plan, internetSpeed, cost,
-            paymentDay, service_status
-        } = req.body;
+        const body = req.body;
+        // Support both camelCase (frontend forms) and snake_case (database/raw objects)
+        const code = body.code;
+        const dni = body.dni;
+        const fullName = body.fullName || body.full_name;
+        const phone = body.phone;
+        const secondPhone = body.secondPhone || body.second_phone;
+        const region = body.region;
+        const province = body.province;
+        const district = body.district;
+        const caserio = body.caserio;
+        const zone = body.zone;
+        const sector = body.sector;
+        const address = body.address;
+        const addressDetails = body.addressDetails || body.address_details;
+        const contractNumber = body.contractNumber || body.contract_number;
+        const planType = body.planType || body.plan_type;
+        const plan = body.plan;
+        const internetSpeed = body.internetSpeed || body.internet_speed;
+        const cost = body.cost;
+        const paymentDay = body.paymentDay || body.payment_day;
+        const service_status = body.service_status;
 
         await query(`
             UPDATE clients 

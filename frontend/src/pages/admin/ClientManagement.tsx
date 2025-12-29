@@ -306,7 +306,7 @@ export default function ClientManagement() {
                                                             loadClients();
                                                         } catch (err: any) {
                                                             console.error(err);
-                                                            alert('Error al actualizar estado');
+                                                            alert(err.response?.data?.error || err.message || 'Error al actualizar estado');
                                                         }
                                                     }}
                                                 >
