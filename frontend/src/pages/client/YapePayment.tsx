@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import yapeQrImage from '../../assets/qryape.png';
 
 export default function YapePayment() {
     const { dni } = useParams<{ dni: string }>();
@@ -67,7 +68,8 @@ export default function YapePayment() {
 
             // Obtener QR de Yape y Número
             const yapeResponse = await api.get(`/client/yape-info`);
-            setQrCode(yapeResponse.data.qrUrl); // Asumiendo que retorna URL si existe
+            // Usar la imagen local importada para asegurar que cargue
+            setQrCode(yapeQrImage);
             setYapeNumber(yapeResponse.data.yapeNumber);
 
             setLoading(false);
