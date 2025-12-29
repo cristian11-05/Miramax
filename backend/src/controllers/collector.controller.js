@@ -133,7 +133,11 @@ export const getCollectorStats = async (req, res) => {
 export const registerFieldPayment = async (req, res) => {
     try {
         const collectorId = req.user.id;
-        const { clientId, amount, paymentMethod, debtIds } = req.body; // debtIds array of ids to close
+        const body = req.body;
+        const clientId = body.clientId;
+        const amount = body.amount;
+        const paymentMethod = body.paymentMethod || body.method; // Support both names
+        const debtIds = body.debtIds; // debtIds array of ids to close
 
         if (!clientId || !amount || !paymentMethod) {
             return res.status(400).json({ error: 'Faltan datos del pago.' });
@@ -163,7 +167,12 @@ export const registerFieldPayment = async (req, res) => {
         res.json({
             success: true,
             message: 'Cobro registrado exitosamente.',
-            paymentId: paymentId
+            payment: {
+                paymentId: paymentId,
+                amount: parseFloat(amount).toFixed(2),
+                date: new Date().toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }),
+                method: paymentMethod
+            }
         });
 
     } catch (error) {
