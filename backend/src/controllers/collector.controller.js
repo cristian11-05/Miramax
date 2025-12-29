@@ -179,3 +179,21 @@ export const sendReminder = async (req, res) => {
 export const getWhatsAppHistory = async (req, res) => {
     res.status(501).json({ error: 'Funcionalidad no implementada aún.' });
 };
+
+// Obtener deudas pendientes de un cliente específico
+export const getClientDebts = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await query(`
+            SELECT id, amount, month, year, status 
+            FROM debts 
+            WHERE client_id = ? AND status = 'pending'
+            ORDER BY year ASC, month ASC
+        `, [id]);
+
+        res.json({ debts: result.rows });
+    } catch (error) {
+        console.error('Error getting client debts:', error);
+        res.status(500).json({ error: 'Error al obtener deudas del cliente.' });
+    }
+};

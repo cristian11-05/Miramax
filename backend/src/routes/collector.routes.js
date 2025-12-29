@@ -5,7 +5,8 @@ import {
     registerFieldPayment,
     sendReminder,
     getCollectorStats,
-    getWhatsAppHistory
+    getWhatsAppHistory,
+    getClientDebts
 } from '../controllers/collector.controller.js';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
 import { upload } from '../services/upload.service.js';
@@ -17,7 +18,8 @@ router.post('/login', collectorLogin);
 
 // Rutas protegidas
 router.get('/clients', authenticateToken, getAssignedClients);
-router.post('/payment', authenticateToken, upload.single('voucher'), registerFieldPayment);
+router.get('/clients/:id/debts', authenticateToken, getClientDebts);
+router.post('/payments', authenticateToken, upload.single('voucher'), registerFieldPayment);
 router.post('/send-reminder', authenticateToken, sendReminder);
 router.get('/stats', authenticateToken, getCollectorStats);
 router.get('/whatsapp-history', authenticateToken, getWhatsAppHistory);
