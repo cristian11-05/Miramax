@@ -315,35 +315,59 @@ export const assignCollectorToLocations = async (req, res) => {
             return res.json({ success: true, message: 'No se seleccionaron ubicaciones.' });
         }
 
-        // We can do this in a transaction or sequential queries
-        // Let's go sequential for simplicity in this dev environment
-        let totalAffected = 0;
+        // 1. Iniciar transacción
+        const connection = await pool.getConnection();
+        await connection.beginTransaction();
 
-        for (const loc of locations) {
-            const { district, caserios } = loc;
-            if (!district || !caserios || !Array.isArray(caserios) || caserios.length === 0) continue;
+        try {
+            // 2. Limpiar asignaciones previas de este cobrador
+            await connection.execute('UPDATE clients SET collector_id = NULL WHERE collector_id = ?', [id]);
 
-            const placeholders = caserios.map(() => '?').join(',');
-            const sql = `UPDATE clients SET collector_id = ? WHERE district = ? AND caserio IN (${placeholders})`;
-            const params = [id, district, ...caserios];
-            const result = await query(sql, params);
-            totalAffected += result.rows.affectedRows || 0;
+            let totalAffected = 0;
+
+            // 3. Aplicar nuevas asignaciones por cada zona/caserío
+            if (locations && Array.isArray(locations)) {
+                for (const loc of locations) {
+                    const { district, caserios } = loc;
+                    if (!district || !caserios || !Array.isArray(caserios) || caserios.length === 0) continue;
+
+                    const placeholders = caserios.map(() => '?').join(',');
+                    const sql = `UPDATE clients SET collector_id = ? WHERE district = ? AND caserio IN (${placeholders})`;
+                    const params = [id, district, ...caserios];
+
+                    const [result] = await connection.execute(sql, params);
+                    totalAffected += result.affectedRows || 0;
+                }
+            }
+
+            // 4. Actualizar el resumen en la tabla de cobradores
+            if (summary) {
+                await connection.execute('UPDATE collectors SET zone = ? WHERE id = ?', [summary, id]);
+            }
+
+            // 5. Confirmar transacción
+            await connection.commit();
+            connection.release();
+
+            res.json({
+                success: true,
+                message: `Se asignaron ${totalAffected} clientes al cobrador.`,
+                affected: totalAffected
+            });
+
+        } catch (innerError) {
+            await connection.rollback();
+            connection.release();
+            throw innerError;
         }
-
-        // Optionally update the collector's zone text summary
-        if (summary) {
-            await query('UPDATE collectors SET zone = ? WHERE id = ?', [summary, id]);
-        }
-
-        res.json({
-            success: true,
-            message: `Se asignaron ${totalAffected} clientes de múltiples zonas al cobrador.`,
-            affected: totalAffected
-        });
 
     } catch (error) {
-        console.error('Error al asignar ruta:', error);
-        res.status(500).json({ error: 'Error al asignar ruta.' });
+        console.error('❌ Error al asignar ruta:', error);
+        res.status(500).json({
+            error: 'Error al asignar ruta.',
+            details: error.message,
+            code: error.code
+        });
     }
 };
 

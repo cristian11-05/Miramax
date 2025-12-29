@@ -36,6 +36,14 @@ export const runAutoMigrations = async () => {
             console.error('❌ Error updating plan:', e.message);
         }
 
+        // 5. Update Collector zone size
+        try {
+            await query("ALTER TABLE collectors MODIFY COLUMN zone VARCHAR(500)");
+            console.log('✅ Updated column: collectors.zone (size increased)');
+        } catch (e) {
+            console.error('❌ Error updating collectors.zone:', e.message);
+        }
+
         console.log('🚀 Auto-migrations check completed.');
     } catch (error) {
         console.error('🔥 Auto-migration failed:', error);

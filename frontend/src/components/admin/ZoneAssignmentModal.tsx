@@ -147,9 +147,10 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
             });
             alert('Ruta actualizada exitosamente');
             onSuccess();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert('Error al guardar la ruta');
+            const msg = error.response?.data?.details || error.response?.data?.error || error.message || 'Error al guardar la ruta';
+            alert(`Error: ${msg}`);
         }
     };
 
