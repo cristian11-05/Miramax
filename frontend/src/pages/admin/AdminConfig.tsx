@@ -279,6 +279,64 @@ const AdminConfig: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Maintenance Zone */}
+                <div style={{ ...styles.dangerCard, borderColor: '#3b82f6', backgroundColor: '#eff6ff' }} className="mb-4">
+                    <h2 style={{ ...styles.dangerTitle, color: '#1d4ed8' }}>🛠️ Mantenimiento del Sistema</h2>
+                    <p className="text-muted small mb-4">Herramientas de diagnóstico y reparación de base de datos.</p>
+
+                    <div className="d-flex flex-column gap-3">
+                        <div className="d-flex justify-content-between align-items-center p-3 bg-white rounded border">
+                            <div>
+                                <p className="fw-bold m-0 text-dark">Inicializar Base de Datos</p>
+                                <p className="text-muted small m-0">Crea tablas faltantes (ej: Reportes AI) sin borrar datos.</p>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    if (!window.confirm('¿Ejecutar migración de tablas faltantes?')) return;
+                                    setSaving(true);
+                                    try {
+                                        const res = await api.post('/admin/system/init-db');
+                                        alert(res.data.message);
+                                    } catch (e) {
+                                        alert('Error al inicializar DB');
+                                    } finally {
+                                        setSaving(false);
+                                    }
+                                }}
+                                className="btn btn-primary btn-sm px-4"
+                                disabled={saving}
+                            >
+                                Ejecutar Migración
+                            </button>
+                        </div>
+
+                        <div className="d-flex justify-content-between align-items-center p-3 bg-white rounded border">
+                            <div>
+                                <p className="fw-bold m-0 text-dark">Tests de Integridad</p>
+                                <p className="text-muted small m-0">Verifica conexión a BD y permisos de escritura.</p>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    setSaving(true);
+                                    try {
+                                        const res = await api.post('/admin/system/run-tests');
+                                        const results = res.data.results.map((r: any) => `${r.name}: ${r.status} ${r.message ? '(' + r.message + ')' : ''}`).join('\n');
+                                        alert('Resultados:\n' + results);
+                                    } catch (e) {
+                                        alert('Error al ejecutar tests');
+                                    } finally {
+                                        setSaving(false);
+                                    }
+                                }}
+                                className="btn btn-secondary btn-sm px-4"
+                                disabled={saving}
+                            >
+                                Ejecutar Tests
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Danger Zone */}
                 <div style={styles.dangerCard}>
                     <h2 style={styles.dangerTitle}>⚠️ Zona de Peligro</h2>

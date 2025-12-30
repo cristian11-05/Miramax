@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { ubigeoData, regions, getProvinces, getDistricts, getCaserios } from '../../data/ubigeo';
+import { Upload } from 'lucide-react';
 
 interface Client {
     id: number;
@@ -170,6 +171,39 @@ export default function ClientManagement() {
         }
     };
 
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            if (!confirm('¿Está seguro de importar este archivo? Los clientes coincidentes por DNI serán actualizados.')) {
+                e.target.value = '';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', e.target.files[0]);
+
+            setLoading(true);
+            try {
+                const res = await api.post('/admin/clients/import', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                const summary = res.data.summary;
+                alert(`Importación completada:\n- Total leídos: ${summary.total}\n- Creados: ${summary.imported}\n- Actualizados: ${summary.updated}\n- Errores: ${summary.errors.length}`);
+
+                if (summary.errors.length > 0) {
+                    console.error('Errores de importación:', summary.errors);
+                    alert('Se encontraron errores en algunas filas. Revise la consola (F12) para más detalles.');
+                }
+                loadClients();
+            } catch (error: any) {
+                console.error('Error importing clients:', error);
+                alert('Error al importar clientes. Verifique el formato del archivo.');
+            } finally {
+                setLoading(false);
+                e.target.value = '';
+            }
+        }
+    };
+
     // State for Custom Location Inputs
     const [isCustom, setIsCustom] = useState({
         region: false,
@@ -231,9 +265,27 @@ export default function ClientManagement() {
                                 <span className="header-description">Administración de cartera de clientes</span>
                             </div>
                         </div>
-                        <button onClick={() => { setIsEditing(false); setEditId(null); resetForm(); setShowModal(true); }} className="action-button">
-                            + Nuevo Cliente
-                        </button>
+                        <div className="d-flex gap-2">
+                            <input
+                                type="file"
+                                id="import-excel"
+                                accept=".xlsx, .xls"
+                                className="d-none"
+                                onChange={handleImport}
+                                aria-label="Importar archivo Excel de clientes"
+                                title="Seleccionar archivo Excel"
+                            />
+                            <button
+                                onClick={() => document.getElementById('import-excel')?.click()}
+                                className="action-button"
+                                style={{ backgroundColor: '#10B981', color: 'white' }}
+                            >
+                                <Upload size={18} className="me-2" /> Importar Excel
+                            </button>
+                            <button onClick={() => { setIsEditing(false); setEditId(null); resetForm(); setShowModal(true); }} className="action-button">
+                                + Nuevo Cliente
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
