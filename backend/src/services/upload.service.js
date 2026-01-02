@@ -27,7 +27,11 @@ const storage = multer.diskStorage({
 
 // Filtro de archivos (solo imágenes)
 const fileFilter = (req, file, cb) => {
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    const allowedMimes = [
+        'image/jpeg', 'image/png', 'image/jpg', 'image/webp',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+        'application/vnd.ms-excel' // xls
+    ];
 
     if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);

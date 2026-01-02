@@ -52,6 +52,24 @@ const ReportsDashboard: React.FC = () => {
         }
     };
 
+    const handleExportDebts = async (format: 'excel' | 'pdf') => {
+        try {
+            const response = await api.get(`/admin/reports/debts?format=${format}`, {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Reporte_Deudas.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error('Error exporting debts:', error);
+            alert('Error al exportar deudas (El soporte PDF puede estar pendiente).');
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-vh-100 flex-column gap-3">
@@ -96,8 +114,22 @@ const ReportsDashboard: React.FC = () => {
                         <button onClick={() => loadData()} className="btn btn-white shadow-sm d-flex align-items-center gap-2" style={{ backgroundColor: 'white' }}>
                             <RefreshCw size={16} /> Actualizar
                         </button>
-                        <button className="btn btn-primary d-flex align-items-center gap-2">
-                            <Download size={16} /> Exportar PDF
+                        <button
+                            onClick={() => handleExportDebts('excel')}
+                            className="btn btn-success d-flex align-items-center gap-2 text-white"
+                            style={{ backgroundColor: '#10B981', borderColor: '#10B981' }}
+                        >
+                            <Download size={16} /> Excel Deudas
+                        </button>
+                        <button onClick={() => handleExportDebts('pdf')} className="btn btn-primary d-flex align-items-center gap-2">
+                            <Download size={16} /> PDF
+                        </button>
+                        <button
+                            onClick={() => navigate('/admin/reports/chatbot')}
+                            className="btn btn-dark d-flex align-items-center gap-2"
+                            style={{ backgroundColor: '#1A1A1A', borderColor: '#1A1A1A', color: 'white' }}
+                        >
+                            <Users size={16} /> Chatbot
                         </button>
                     </div>
                 </div>

@@ -1,4 +1,8 @@
 import { query } from '../config/database.js';
+import xlsx from 'xlsx';
+import path from 'path';
+import fs from 'fs';
+import PDFDocument from 'pdfkit';
 
 /**
  * Get aggregated earnings reports: Daily, Monthly, and Annual
@@ -150,5 +154,105 @@ export const resetSystemData = async (req, res) => {
     } catch (error) {
         console.error('Error in resetSystemData:', error);
         res.status(500).json({ error: 'Error al reiniciar el sistema.' });
+    }
+};
+
+export const exportDebtsReport = async (req, res) => {
+    try {
+        const { format } = req.query; // 'excel' or 'pdf'
+
+        // 1. Obtener datos de la BD
+        const sql = `
+            SELECT 
+                c.dni, 
+                c.full_name as Cliente, 
+                c.address as Direccion,
+                c.sector as Sector,
+                c.zone as Zona,
+                d.month as Mes, 
+                d.year as Anio, 
+                d.amount as Monto, 
+                d.status as Estado
+            FROM debts d
+            JOIN clients c ON d.client_id = c.id
+            WHERE d.status = 'pending'
+            ORDER BY c.full_name ASC, d.year DESC, d.month DESC
+        `;
+
+        const result = await query(sql);
+        const data = result.rows;
+
+        if (format === 'excel') {
+            // 2. Generar Excel
+            const worksheet = xlsx.utils.json_to_sheet(data);
+            const workbook = xlsx.utils.book_new();
+            xlsx.utils.book_append_sheet(workbook, worksheet, "Deudas Pendientes");
+
+            // Crear buffer
+            const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+            // Enviar respuesta
+            res.setHeader('Content-Disposition', 'attachment; filename="Reporte_Deudas.xlsx"');
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.send(buffer);
+
+        } else if (format === 'pdf') {
+            const doc = new PDFDocument({ margin: 50 });
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', 'attachment; filename="Reporte_Deudas.pdf"');
+
+            doc.pipe(res);
+
+            // Header
+            doc.fontSize(20).text('Reporte de Deudas Pendientes', { align: 'center' });
+            doc.moveDown();
+            doc.fontSize(12).text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, { align: 'right' });
+            doc.moveDown();
+
+            // Table Header
+            const tableTop = 150;
+            const colX = [50, 200, 300, 400, 500]; // X positions for columns
+
+            doc.font('Helvetica-Bold');
+            doc.text('Cliente', colX[0], tableTop);
+            doc.text('DNI', colX[1], tableTop);
+            doc.text('Periodo', colX[2], tableTop);
+            doc.text('Monto', colX[3], tableTop);
+
+            doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+
+            // Table Body
+            let y = tableTop + 25;
+            doc.font('Helvetica');
+
+            data.forEach((row, i) => {
+                if (y > 700) { // New page
+                    doc.addPage();
+                    y = 50;
+                }
+
+                doc.text(row.Cliente.substring(0, 25), colX[0], y);
+                doc.text(row.dni, colX[1], y);
+                doc.text(`${row.Mes} ${row.Anio}`, colX[2], y);
+                doc.text(`S/ ${parseFloat(row.Monto).toFixed(2)}`, colX[3], y);
+
+                y += 20;
+            });
+
+            // Summary
+            doc.moveDown();
+            doc.font('Helvetica-Bold');
+            const total = data.reduce((sum, row) => sum + parseFloat(row.Monto), 0);
+            doc.text(`Total Deuda Pendiente: S/ ${total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`, { align: 'right' });
+
+            doc.end();
+        } else {
+            res.status(400).json({ error: 'Formato no soportado. Use ?format=excel' });
+        }
+
+    } catch (error) {
+        console.error('Error exportando reporte:', error);
+        res.status(500).json({ error: 'Error al generar el reporte.' });
     }
 };

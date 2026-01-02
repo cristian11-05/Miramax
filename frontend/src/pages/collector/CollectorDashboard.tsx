@@ -12,6 +12,7 @@ interface Client {
     district: string;
     caserio: string;
     zone?: string;
+    sector?: string;
     plan_type?: string;
     plan: string;
     internet_speed?: string;
@@ -108,7 +109,7 @@ const styles = {
         textShadow: '0 2px 4px rgba(0,0,0,0.2)',
     },
     searchContainer: {
-        marginBottom: '2.5rem',
+        marginBottom: '1.5rem',
         position: 'relative' as const,
     },
     searchInput: {
@@ -130,6 +131,24 @@ const styles = {
         transform: 'translateY(-50%)',
         fontSize: '1.3rem',
         opacity: 0.5,
+    },
+    filtersContainer: {
+        display: 'flex',
+        gap: '1rem',
+        marginBottom: '2rem',
+        flexWrap: 'wrap' as const,
+    },
+    filterSelect: {
+        flex: 1,
+        minWidth: '150px',
+        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        color: '#F8FAFC',
+        padding: '0.8rem 1rem',
+        borderRadius: '16px',
+        fontSize: '0.9rem',
+        outline: 'none',
+        cursor: 'pointer',
     },
     groupHeader: {
         padding: '1.5rem 0 1rem',
@@ -284,6 +303,11 @@ export default function CollectorDashboard() {
     const receiptRef = useRef<HTMLDivElement>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Filters
+    const [selectedSector, setSelectedSector] = useState('all');
+    const [selectedZone, setSelectedZone] = useState('all');
+    const [selectedStatus, setSelectedStatus] = useState('all');
+
     useEffect(() => {
         const userData = localStorage.getItem('user');
         const token = localStorage.getItem('token');
@@ -373,10 +397,17 @@ export default function CollectorDashboard() {
         window.open(`https://wa.me/51${selectedClient?.phone}?text=${encodeURIComponent(message)}`, '_blank');
     };
 
-    const filteredClients = clients.filter(c =>
-        c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.dni.includes(searchTerm)
-    );
+    // Derived metadata for filters
+    const uniqueSectors = Array.from(new Set(clients.map(c => c.sector).filter(Boolean)));
+    const uniqueZones = Array.from(new Set(clients.map(c => c.zone).filter(Boolean)));
+
+    const filteredClients = clients.filter(c => {
+        const searchMatch = c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || c.dni.includes(searchTerm);
+        const sectorMatch = selectedSector === 'all' || c.sector === selectedSector;
+        const zoneMatch = selectedZone === 'all' || c.zone === selectedZone;
+        const statusMatch = selectedStatus === 'all' || c.service_status === selectedStatus;
+        return searchMatch && sectorMatch && zoneMatch && statusMatch;
+    });
 
     const groupedClients = filteredClients.reduce((acc, client) => {
         const key = `${client.district} - ${client.caserio}`;
@@ -422,6 +453,37 @@ export default function CollectorDashboard() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
+                </div>
+
+                <div style={styles.filtersContainer}>
+                    <select
+                        style={styles.filterSelect}
+                        value={selectedSector}
+                        onChange={(e) => setSelectedSector(e.target.value)}
+                    >
+                        <option value="all">Todos los Sectores</option>
+                        {uniqueSectors.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+
+                    <select
+                        style={styles.filterSelect}
+                        value={selectedZone}
+                        onChange={(e) => setSelectedZone(e.target.value)}
+                    >
+                        <option value="all">Todas las Zonas</option>
+                        {uniqueZones.map(z => <option key={z} value={z}>{z}</option>)}
+                    </select>
+
+                    <select
+                        style={styles.filterSelect}
+                        value={selectedStatus}
+                        onChange={(e) => setSelectedStatus(e.target.value)}
+                    >
+                        <option value="all">Todos los Estados</option>
+                        <option value="active">Activos</option>
+                        <option value="suspended">Suspendidos</option>
+                        <option value="retired">Retirados</option>
+                    </select>
                 </div>
 
                 {Object.entries(groupedClients).map(([location, list]) => (

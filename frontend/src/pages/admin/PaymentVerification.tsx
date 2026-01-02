@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import html2canvas from 'html2canvas';
+import { Upload } from 'lucide-react';
 
 interface VerificationItem {
     debt_id: number;
@@ -96,6 +97,29 @@ export default function PaymentVerification() {
         }
     };
 
+    const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            setLoading(true);
+            const response = await api.post('/admin/payments/import', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            alert(response.data.message);
+            loadVerifications();
+        } catch (err: any) {
+            console.error(err);
+            alert(err.response?.data?.error || 'Error al importar');
+            setLoading(false);
+        }
+        // Reset input
+        event.target.value = '';
+    };
+
     const handleApprove = async (item: VerificationItem) => {
         try {
             setLoading(true);
@@ -178,9 +202,20 @@ export default function PaymentVerification() {
             <div className="container">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                     <h2>Verificación de Pagos</h2>
-                    <button onClick={() => navigate('/admin/dashboard')} className="btn btn-outline">
-                        Volver al Dashboard
-                    </button>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <label className="btn btn-outline" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Upload size={16} /> Importar Excel
+                            <input
+                                type="file"
+                                accept=".xlsx, .xls"
+                                style={{ display: 'none' }}
+                                onChange={handleImport}
+                            />
+                        </label>
+                        <button onClick={() => navigate('/admin/dashboard')} className="btn btn-outline">
+                            Volver al Dashboard
+                        </button>
+                    </div>
                 </div>
 
                 {error && <div className="alert alert-error">{error}</div>}

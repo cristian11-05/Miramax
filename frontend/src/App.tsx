@@ -18,6 +18,7 @@ import PaymentVerification from './pages/admin/PaymentVerification';
 import DebtManagement from './pages/admin/DebtManagement';
 import AdminConfig from './pages/admin/AdminConfig';
 import ReportsDashboard from './pages/admin/ReportsDashboard';
+import ChatbotReports from './pages/admin/ChatbotReports';
 import StaffSelection from './pages/staff/StaffSelection';
 
 
@@ -55,7 +56,9 @@ function App() {
                         <Route path="/admin/payments/verification" element={<PaymentVerification />} />
                         <Route path="/admin/debts" element={<DebtManagement />} />
                         <Route path="/admin/config" element={<AdminConfig />} />
+                        <Route path="/admin/config" element={<AdminConfig />} />
                         <Route path="/admin/reports" element={<ReportsDashboard />} />
+                        <Route path="/admin/reports/chatbot" element={<ChatbotReports />} />
                     </>
                 )}
 

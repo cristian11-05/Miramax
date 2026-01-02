@@ -54,13 +54,13 @@ export const collectorLogin = async (req, res) => {
 export const getAssignedClients = async (req, res) => {
     try {
         const collectorId = req.user.id;
-        const { search } = req.query;
+        const { search, sector, zone, street, status } = req.query;
 
         let sql = `
       SELECT 
         c.id, c.dni, c.full_name, c.phone, c.second_phone,
         c.region, c.province, c.district, c.caserio, c.zone,
-        c.address, c.contract_number, 
+        c.sector, c.address, c.contract_number, 
         c.plan_type, c.plan, c.internet_speed, c.cost,
         c.service_status,
         COALESCE(SUM(CASE WHEN d.status = 'pending' THEN d.amount ELSE 0 END), 0) as total_debt,
@@ -75,6 +75,26 @@ export const getAssignedClients = async (req, res) => {
         if (search) {
             sql += ` AND (c.full_name LIKE ? OR c.dni LIKE ?)`;
             params.push(`%${search}%`, `%${search}%`);
+        }
+
+        if (sector && sector !== 'all') {
+            sql += ` AND c.sector = ?`;
+            params.push(sector);
+        }
+
+        if (zone && zone !== 'all') {
+            sql += ` AND c.zone = ?`;
+            params.push(zone);
+        }
+
+        if (street && street !== 'all') {
+            sql += ` AND c.address LIKE ?`;
+            params.push(`%${street}%`);
+        }
+
+        if (status && status !== 'all') {
+            sql += ` AND c.service_status = ?`;
+            params.push(status);
         }
 
         sql += ` GROUP BY c.id ORDER BY c.full_name ASC`;

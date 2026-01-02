@@ -8,17 +8,27 @@ interface ChatbotReport {
     collector_id: number;
     collector_name: string;
     report_date: string;
-    content: any;
+    content: string | Record<string, unknown>;
     status: string;
     created_at: string;
+}
+
+interface Collector {
+    id: number;
+    full_name: string;
+}
+
+interface FilterState {
+    collectorId: string;
+    date: string;
 }
 
 export default function ChatbotReports() {
     const navigate = useNavigate();
     const [reports, setReports] = useState<ChatbotReport[]>([]);
     const [loading, setLoading] = useState(true);
-    const [collectors, setCollectors] = useState<any[]>([]);
-    const [filters, setFilters] = useState({
+    const [collectors, setCollectors] = useState<Collector[]>([]);
+    const [filters, setFilters] = useState<FilterState>({
         collectorId: '',
         date: ''
     });
@@ -88,7 +98,7 @@ export default function ChatbotReports() {
                             >
                                 <option value="">Todos los cobradores</option>
                                 {collectors.map(c => (
-                                    <option key={c.id} value={c.id}>{c.full_name}</option>
+                                    <option key={c.id} value={String(c.id)}>{c.full_name}</option>
                                 ))}
                             </select>
                         </div>
@@ -137,8 +147,8 @@ export default function ChatbotReports() {
                                         </span>
                                     </div>
                                     <div className="card-body">
-                                        <div className="bg-light p-3 rounded" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                            <pre className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>
+                                        <div className="bg-light p-3 rounded overflow-auto" style={{ maxHeight: '300px' }}>
+                                            <pre className="mb-0 text-wrap">
                                                 {typeof report.content === 'string'
                                                     ? report.content
                                                     : JSON.stringify(report.content, null, 2)}

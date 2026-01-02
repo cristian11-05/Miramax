@@ -128,6 +128,19 @@ const setupDatabase = async () => {
       )
     `);
 
+    // Tabla: chatbot_reports
+    await query(`
+      CREATE TABLE chatbot_reports (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        collector_id INT,
+        report_date DATE DEFAULT (CURRENT_DATE),
+        content JSON,
+        status VARCHAR(20) DEFAULT 'success',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (collector_id) REFERENCES collectors(id) ON DELETE SET NULL
+      )
+    `);
+
     // Tabla: admin_users
     await query(`
       CREATE TABLE admin_users (
