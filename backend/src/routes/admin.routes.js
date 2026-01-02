@@ -31,7 +31,7 @@ import {
     resetSystemData,
     exportDebtsReport
 } from '../controllers/reports.controller.js';
-import { importPayments } from '../controllers/payments.controller.js';
+import { importPayments } from '../controllers/PaymentsController.js';
 import { importClients } from '../controllers/clients.controller.js';
 import { getChatbotReports } from '../controllers/chatbot.controller.js';
 import { initDatabase, runSystemTests } from '../controllers/system.controller.js';
