@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { ubigeoData, regions, getProvinces, getDistricts, getCaserios } from '../../data/ubigeo';
-import { Upload } from 'lucide-react';
+import { Upload, MapPin } from 'lucide-react';
+import ZoneDefinitionModal from '../../components/admin/ZoneDefinitionModal';
 
 interface Client {
     id: number;
@@ -34,8 +35,13 @@ export default function ClientManagement() {
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [showZoneModal, setShowZoneModal] = useState(false); // New Modal State
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState<number | null>(null);
+
+    // Defined Zones
+    const [definedZones, setDefinedZones] = useState<{ name: string, caserios: string[] }[]>([]);
+
     const [formData, setFormData] = useState({
         code: '',
         dni: '',
@@ -61,6 +67,7 @@ export default function ClientManagement() {
 
     useEffect(() => {
         loadClients();
+        loadZones();
     }, []);
 
     const loadClients = async () => {
@@ -74,9 +81,43 @@ export default function ClientManagement() {
         }
     };
 
+    const loadZones = async () => {
+        try {
+            const { data } = await api.get('/admin/config');
+            if (data.config && data.config.defined_zones) {
+                const parsed = JSON.parse(data.config.defined_zones);
+                setDefinedZones(Array.isArray(parsed) ? parsed : []);
+            }
+        } catch (error) {
+            console.error('Error loading zones:', error);
+        }
+    };
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleZoneChange = (zoneName: string) => {
+        if (zoneName === '__NEW__') {
+            setShowModal(false); // Close edit modal
+            setShowZoneModal(true); // Open zone manager
+            return;
+        }
+
+        // If a defined zone is selected, try to infer the location context from its first caserio
+        const selectedZone = definedZones.find(z => z.name === zoneName);
+        let updates: any = { sector: zoneName };
+
+        if (selectedZone && selectedZone.caserios.length > 0) {
+            // We'll reset the caserio selection when zone changes, to force re-selection from the filtered list
+            updates.caserio = '';
+
+            // Optional: infer district/province/region from the first caserio in the zone if possible
+            // For now, we rely on the filtering logic in getCaserios
+        }
+
+        setFormData(prev => ({ ...prev, ...updates }));
     };
 
     const resetForm = () => {
@@ -240,10 +281,23 @@ export default function ClientManagement() {
             regions: Object.keys(learnedData),
             getProvinces: (region: string) => region && learnedData[region] ? Object.keys(learnedData[region]) : [],
             getDistricts: (region: string, province: string) => region && province && learnedData[region]?.[province] ? Object.keys(learnedData[region][province]) : [],
-            getCaserios: (region: string, province: string, district: string) => region && province && district && learnedData[region]?.[province]?.[district] ? learnedData[region][province][district] : []
+            getCaserios: (region: string, province: string, district: string) => {
+                let allCaserios = region && province && district && learnedData[region]?.[province]?.[district] ? learnedData[region][province][district] : [];
+
+                // Filter by Zone if one is selected
+                if (formData.sector && definedZones.some(z => z.name === formData.sector)) {
+                    const zone = definedZones.find(z => z.name === formData.sector);
+                    if (zone) {
+                        // Only show caserios that are in this zone
+                        // Since our Zones are just lists of names, we filter based on name inclusion
+                        allCaserios = allCaserios.filter((c: string) => zone.caserios.includes(c));
+                    }
+                }
+                return allCaserios;
+            }
         });
 
-    }, [clients]);
+    }, [clients, formData.sector, definedZones]);
 
     const filteredClients = clients.filter(c =>
         c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -266,6 +320,14 @@ export default function ClientManagement() {
                             </div>
                         </div>
                         <div className="d-flex gap-2">
+                            <button
+                                onClick={() => setShowZoneModal(true)}
+                                className="action-button"
+                                style={{ backgroundColor: '#6366f1', color: 'white' }}
+                                title="Gestionar Zonas y Rutas"
+                            >
+                                <MapPin size={18} className="me-2" /> Gestionar Zonas
+                            </button>
                             <input
                                 type="file"
                                 id="import-excel"
@@ -376,6 +438,14 @@ export default function ClientManagement() {
                     </div>
                 </div>
 
+                {/* Zone Manager Modal */}
+                {showZoneModal && (
+                    <ZoneDefinitionModal
+                        onClose={() => setShowZoneModal(false)}
+                        onSaveSuccess={loadZones}
+                    />
+                )}
+
                 {/* Modal */}
                 {showModal && (
                     <div className="modal-overlay">
@@ -411,6 +481,31 @@ export default function ClientManagement() {
 
                                 <h4 className="form-section-title">Ubicación y Zona</h4>
                                 <div className="form-grid">
+                                    {/* Zone Selection FIRST */}
+                                    <div className="form-group span-2">
+                                        <label>Sector / Zona *</label>
+                                        <select
+                                            name="sector"
+                                            value={formData.sector}
+                                            onChange={(e) => handleZoneChange(e.target.value)}
+                                            className="form-input"
+                                            required
+                                            title="Sector/Zona Personalizada"
+                                            style={{ backgroundColor: '#f0f9ff', fontWeight: 600, borderColor: '#6366f1' }}
+                                        >
+                                            <option value="">-- Seleccione Zona --</option>
+                                            {definedZones.map(z => (
+                                                <option key={z.name} value={z.name}>{z.name}</option>
+                                            ))}
+                                            {formData.sector && !definedZones.find(z => z.name === formData.sector) && (
+                                                <option value={formData.sector}>{formData.sector} (Manual)</option>
+                                            )}
+                                        </select>
+                                        <small className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                            Seleccione una zona para filtrar los caseríos disponibles.
+                                        </small>
+                                    </div>
+
                                     <div className="form-group">
                                         <label>Región *</label>
                                         <div className="form-row-group">
@@ -575,6 +670,7 @@ export default function ClientManagement() {
                                                             setFormData(prev => ({ ...prev, caserio: '' }));
                                                         } else {
                                                             handleInputChange(e);
+                                                            // Auto-detect address zone if possible could be here
                                                         }
                                                     }}
                                                     className="form-input"
@@ -610,8 +706,7 @@ export default function ClientManagement() {
                                         <input name="addressDetails" value={formData.addressDetails} onChange={handleInputChange} className="form-input" placeholder="Ej: Mz18 Lt12" title="Detalle" />
                                     </div>
                                     <div className="form-group">
-                                        <label>Sector / Zona *</label>
-                                        <input name="sector" value={formData.sector} onChange={handleInputChange} className="form-input" required placeholder="Ej: Usquil Centro" title="Sector" />
+                                        {/* Sector/Zona Removed from here */}
                                     </div>
                                 </div>
 

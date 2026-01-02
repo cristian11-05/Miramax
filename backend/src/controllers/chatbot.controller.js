@@ -1,4 +1,28 @@
 import { query } from '../config/database.js';
+import { processCollectorQuery } from '../services/groq.service.js';
+
+// Interactuar con el Chatbot (IA)
+export const chatWithAssistant = async (req, res) => {
+    try {
+        const { query: userQuery } = req.body;
+        const collectorId = req.user.id; // From JWT middleware
+
+        if (!userQuery) {
+            return res.status(400).json({ error: 'La consulta es requerida.' });
+        }
+
+        const response = await processCollectorQuery(collectorId, userQuery);
+
+        // Guardar interacción (opcional)
+        // await saveInteractionLog(...)
+
+        res.json(response);
+
+    } catch (error) {
+        console.error('Error en chat chatbot:', error);
+        res.status(500).json({ error: 'Error interno del asistente.' });
+    }
+};
 
 // Guardar un reporte generado por el chatbot
 export const saveReport = async (req, res) => {

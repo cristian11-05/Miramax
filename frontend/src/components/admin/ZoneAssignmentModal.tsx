@@ -20,6 +20,10 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
     // assignments: Record<district, Set<caserio>>
     const [selections, setSelections] = useState<Record<string, string[]>>({});
 
+    // Defined Zones
+    const [definedZones, setDefinedZones] = useState<{ name: string, caserios: string[] }[]>([]);
+    const [showZoneSelector, setShowZoneSelector] = useState(false);
+
     useEffect(() => {
         loadData();
     }, []);
@@ -52,6 +56,47 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
         } finally {
             setLoading(false);
         }
+    };
+
+    const loadDefinedZones = async () => {
+        try {
+            const { data } = await api.get('/admin/config');
+            if (data.config && data.config.defined_zones) {
+                const parsed = JSON.parse(data.config.defined_zones);
+                setDefinedZones(Array.isArray(parsed) ? parsed : []);
+            }
+        } catch (error) {
+            console.error('Error loading zones:', error);
+        }
+    };
+
+    useEffect(() => {
+        loadDefinedZones();
+    }, []);
+
+    const handleApplyZone = (zone: { name: string, caserios: string[] }) => {
+        if (!confirm(`¿Aplicar zona "${zone.name}"? Esto agregará ${zone.caserios.length} caseríos a la selección.`)) return;
+
+        const newSelections = { ...selections };
+
+        zone.caserios.forEach(caserioName => {
+            // Find district for this caserio (reverse lookup needed essentially, or search all districts)
+            // Since we know region/province (Otuzco), we can search districts
+            const districts = getDistricts(selectedRegion, selectedProvince);
+            for (const d of districts) {
+                const districtCaserios = getCaserios(selectedRegion, selectedProvince, d);
+                if (districtCaserios.includes(caserioName)) {
+                    if (!newSelections[d]) newSelections[d] = [];
+                    if (!newSelections[d].includes(caserioName)) {
+                        newSelections[d].push(caserioName);
+                    }
+                    break; // Found the district
+                }
+            }
+        });
+
+        setSelections(newSelections);
+        setShowZoneSelector(false);
     };
 
     // Calculate stats per district
@@ -152,7 +197,7 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
 
     if (loading) return (
         <div className="modal-overlay zone-modal-overlay">
-            <div className="card zone-modal-container" style={{ padding: '2rem', textAlign: 'center' }}>
+            <div className="card zone-modal-container spinner-container">
                 <div className="spinner"></div>
                 <p>Cargando información geográfica...</p>
             </div>
@@ -168,7 +213,26 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
                 <div className="zone-modal-header">
                     <div>
                         <h2 className="zone-modal-title">📍 Asignar Ruta Multizona</h2>
-                        <p className="zone-modal-subtitle">Configurando cobertura para <strong>{collector.full_name}</strong></p>
+                        <div className="zone-header-controls">
+                            <p className="zone-modal-subtitle">Configurando cobertura para <strong>{collector.full_name}</strong></p>
+                            <button onClick={() => setShowZoneSelector(!showZoneSelector)} className="btn btn-sm btn-outline text-primary btn-load-zone">
+                                📥 Cargar Zona Predefinida
+                            </button>
+                            {showZoneSelector && (
+                                <div className="zone-selector-dropdown">
+                                    {definedZones.map(z => (
+                                        <div
+                                            key={z.name}
+                                            className="zone-selector-item"
+                                            onClick={() => handleApplyZone(z)}
+                                        >
+                                            {z.name} ({z.caserios.length})
+                                        </div>
+                                    ))}
+                                    {definedZones.length === 0 && <div className="p-2 text-muted">No hay zonas definidas</div>}
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <button onClick={onClose} className="zone-modal-close-btn">✕</button>
                 </div>
@@ -185,8 +249,8 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
                                     onClick={() => setActiveDistrict(d.name)}
                                     className={`district-item ${d.name === activeDistrict ? 'active' : ''}`}
                                 >
-                                    <div style={{ fontWeight: 600 }}>{d.name}</div>
-                                    <div style={{ display: 'flex', gap: '5px', marginTop: '2px' }}>
+                                    <div className="district-name">{d.name}</div>
+                                    <div className="district-badges">
                                         <span className="mini-badge bg-blue-soft">{d.totalClients} 👥</span>
                                         {d.selectedCount > 0 && (
                                             <span className="mini-badge bg-green-soft">{d.selectedCount} ✓</span>
@@ -200,7 +264,7 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
                     {/* Center: Caserios Checklist */}
                     <div className="zone-modal-main">
                         <div className="zone-main-header">
-                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Caseríos en {activeDistrict}</h3>
+                            <h3 className="caserios-header-title">Caseríos en {activeDistrict}</h3>
                             <button onClick={toggleAllInDistrict} className="text-btn">
                                 {caserioStats.every(s => s.isSelected) ? 'Desmarcar Todos' : 'Seleccionar Todos'}
                             </button>
@@ -208,29 +272,29 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
                         <div className="zone-scroll-area">
                             {caserioStats.map(s => (
                                 <label key={s.name} className={`caserio-item ${s.isSelected ? 'selected' : ''}`}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                    <div className="caserio-row">
                                         <input
                                             type="checkbox"
                                             checked={s.isSelected}
                                             onChange={() => toggleCaserio(s.name)}
                                             className="caserio-checkbox"
                                         />
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: 600, color: '#1F2937' }}>{s.name}</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                                        <div className="caserio-text-col">
+                                            <div className="caserio-name">{s.name}</div>
+                                            <div className="caserio-sub">
                                                 {s.sample ? `Clientes: ${s.sample}...` : 'Sin clientes en esta zona'}
                                             </div>
                                         </div>
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontWeight: 700, color: s.totalClients > 0 ? '#3B82F6' : '#9CA3AF' }}>
+                                    <div className="caserio-stats-col">
+                                        <div className={`stat-total ${s.totalClients > 0 ? 'has-clients' : ''}`}>
                                             {s.totalClients}
                                         </div>
                                         {s.isAssignedToOther && (
-                                            <span style={{ fontSize: '0.65rem', color: '#EF4444', fontWeight: 600 }}>Ocupado ⚠️</span>
+                                            <span className="stat-badge-occupied">Ocupado ⚠️</span>
                                         )}
                                         {s.isAssignedToMe && (
-                                            <span style={{ fontSize: '0.65rem', color: '#10B981', fontWeight: 600 }}>Actual ✓</span>
+                                            <span className="stat-badge-current">Actual ✓</span>
                                         )}
                                     </div>
                                 </label>
@@ -244,17 +308,17 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
                         <div className="zone-scroll-area">
                             {Object.entries(selections).map(([dist, list]) => list.length > 0 && (
                                 <div key={dist} className="cart-item">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <strong style={{ color: 'var(--primary)' }}>{dist}</strong>
+                                    <div className="cart-item-header">
+                                        <strong className="cart-district-name">{dist}</strong>
                                         <button onClick={() => removeDistrict(dist)} className="remove-btn">🗑️</button>
                                     </div>
-                                    <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>
+                                    <div className="cart-list-text">
                                         {list.length} caseríos: {list.join(', ')}
                                     </div>
                                 </div>
                             ))}
                             {totalSelectedCaserios === 0 && (
-                                <div style={{ textAlign: 'center', color: '#9CA3AF', padding: '2rem 1rem' }}>
+                                <div className="cart-empty">
                                     No hay zonas seleccionadas
                                 </div>
                             )}
@@ -264,11 +328,11 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
 
                 {/* Footer */}
                 <div className="zone-modal-footer">
-                    <div style={{ marginRight: 'auto' }}>
-                        <span style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--primary)' }}>{totalSelectedCaserios}</span>
-                        <span style={{ color: '#6B7280', marginLeft: '5px' }}>Zonas seleccionadas</span>
+                    <div className="footer-stats-left">
+                        <span className="footer-count">{totalSelectedCaserios}</span>
+                        <span className="footer-label">Zonas seleccionadas</span>
                     </div>
-                    <button onClick={onClose} className="btn btn-outline" style={{ borderRadius: '10px' }}>Cancelar</button>
+                    <button onClick={onClose} className="btn btn-outline btn-cancel">Cancelar</button>
                     <button
                         onClick={handleSave}
                         className="btn btn-primary btn-gradient-orange"

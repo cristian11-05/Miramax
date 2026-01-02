@@ -90,8 +90,9 @@ export default function ChatbotReports() {
                 <div className="card shadow-sm border-0 mb-4">
                     <div className="card-body d-flex gap-3 align-items-end">
                         <div className="flex-grow-1">
-                            <label className="form-label small text-muted">Filtrar por Cobrador</label>
+                            <label htmlFor="collector-filter" className="form-label small text-muted">Filtrar por Cobrador</label>
                             <select
+                                id="collector-filter"
                                 className="form-select"
                                 value={filters.collectorId}
                                 onChange={(e) => setFilters(prev => ({ ...prev, collectorId: e.target.value }))}
@@ -103,8 +104,9 @@ export default function ChatbotReports() {
                             </select>
                         </div>
                         <div className="flex-grow-1">
-                            <label className="form-label small text-muted">Fecha</label>
+                            <label htmlFor="date-filter" className="form-label small text-muted">Fecha</label>
                             <input
+                                id="date-filter"
                                 type="date"
                                 className="form-control"
                                 value={filters.date}

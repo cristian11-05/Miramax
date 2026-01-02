@@ -183,7 +183,7 @@ export default function PaymentVerification() {
                 // Actually html2canvas works best if element is visible. Let's try rendering it in a hidden container but "visible" processing.
                 // Better approach: Render it in the modal visually as a "Preview" then capture that.
 
-                const canvas = await html2canvas(element, { scale: 2 });
+                const canvas = await html2canvas(element, { scale: 2 } as any);
                 const link = document.createElement('a');
                 link.download = `Boleta_${successModal?.debtId}.png`;
                 link.href = canvas.toDataURL('image/png');

@@ -682,14 +682,37 @@ export const getConfig = async (req, res) => {
 
 export const updateConfig = async (req, res) => {
     try {
-        const { yapeNumber } = req.body;
+        const updates = req.body; // Expect { yapeNumber: '...', defined_zones: '...' }
 
-        await query(
-            "INSERT INTO system_config (config_key, config_value) VALUES ('yape_number', ?) ON DUPLICATE KEY UPDATE config_value = ?",
-            [yapeNumber, yapeNumber]
-        );
+        const connection = await pool.getConnection();
+        await connection.beginTransaction();
 
-        res.json({ success: true, message: 'Configuración actualizada.' });
+        try {
+            if (updates.yapeNumber !== undefined) {
+                await connection.query(
+                    "INSERT INTO system_config (config_key, config_value) VALUES ('yape_number', ?) ON DUPLICATE KEY UPDATE config_value = ?",
+                    [updates.yapeNumber, updates.yapeNumber]
+                );
+            }
+
+            if (updates.defined_zones !== undefined) {
+                // Ensure it is a string
+                const val = typeof updates.defined_zones === 'object' ? JSON.stringify(updates.defined_zones) : updates.defined_zones;
+                await connection.query(
+                    "INSERT INTO system_config (config_key, config_value) VALUES ('defined_zones', ?) ON DUPLICATE KEY UPDATE config_value = ?",
+                    [val, val]
+                );
+            }
+
+            await connection.commit();
+            res.json({ success: true, message: 'Configuración actualizada.' });
+        } catch (innerErr) {
+            await connection.rollback();
+            throw innerErr;
+        } finally {
+            connection.release();
+        }
+
     } catch (error) {
         console.error('Error al actualizar config:', error);
         res.status(500).json({ error: 'Error al actualizar configuración.' });

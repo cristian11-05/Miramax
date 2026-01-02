@@ -1,6 +1,6 @@
+import 'dotenv/config'; // Load env vars before other imports
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -10,7 +10,7 @@ import collectorRoutes from './routes/collector.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import { runAutoMigrations } from './services/migration.service.js';
 
-dotenv.config();
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -8,6 +8,7 @@ import {
     getWhatsAppHistory,
     getClientDebts
 } from '../controllers/collector.controller.js';
+import { chatWithAssistant } from '../controllers/chatbot.controller.js';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
 import { upload } from '../services/upload.service.js';
 
@@ -23,5 +24,6 @@ router.post('/payments', authenticateToken, upload.single('voucher'), registerFi
 router.post('/send-reminder', authenticateToken, sendReminder);
 router.get('/stats', authenticateToken, getCollectorStats);
 router.get('/whatsapp-history', authenticateToken, getWhatsAppHistory);
+router.post('/chat', authenticateToken, chatWithAssistant);
 
 export default router;
