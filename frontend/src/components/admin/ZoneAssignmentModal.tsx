@@ -42,7 +42,7 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
 
             // Establecer primer distrito como activo
             if (uniqueDistricts.length > 0) {
-                setActiveDistrict(uniqueDistricts[0]);
+                setActiveDistrict(uniqueDistricts[0] as string);
             }
 
             // Try to infer current selections from clients already assigned to this collector
