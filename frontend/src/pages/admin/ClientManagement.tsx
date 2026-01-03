@@ -28,9 +28,11 @@ interface Client {
     payment_day?: number;
     service_status: string;
     pending_verifications?: number;
+    collector_id?: number | null;
+    collector_name?: string;
 }
 
-export default function ClientManagement() {
+const ClientManagement = () => {
     const navigate = useNavigate();
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
@@ -194,14 +196,56 @@ export default function ClientManagement() {
         // @ts-ignore
         delete payload.planName;
 
+        console.log('📤 Enviando payload de cliente (SIN collectorId - será auto-asignado):', payload);
+
         try {
+            let response;
             if (isEditing && editId) {
-                await api.put(`/admin/clients/${editId}`, payload);
+                response = await api.put(`/admin/clients/${editId}`, payload);
                 alert('Cliente actualizado exitosamente');
             } else {
-                await api.post('/admin/clients', payload);
+                response = await api.post('/admin/clients', payload);
                 alert('Cliente creado exitosamente');
             }
+
+            // Verificar si hay advertencia de cobrador no encontrado
+            if (response.data.warning === 'NO_COLLECTOR' || response.data.message?.includes('sin cobrador')) {
+                // Sonido de alerta
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSF+zPLTgjMGHm7A7+OZSA0PVa3n77BdGAc+ltryxnMpBSyAzfPYijcIG2i78OScUhENT6Tj8LdjHQU3kdXA==');
+                audio.play().catch(e => console.log('Audio no disponible'));
+
+                // Alerta visual
+                const warningMsg = `❌🚨 ZONA SIN COBRADOR ASIGNADO!\n\n${formData.province} > ${formData.district} > ${formData.caserio}\n\nEl cliente fue creado pero necesita asignación manual de cobrador.`;
+                alert(warningMsg);
+
+                // Mostrar alerta en pantalla (opcional, más visual)
+                const alertDiv = document.createElement('div');
+                alertDiv.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: #ff0000;
+                    color: white;
+                    padding: 2rem;
+                    border-radius: 12px;
+                    font-size: 1.5rem;
+                    z-index: 10000;
+                    box-shadow: 0 0 30px rgba(255,0,0,0.5);
+                    border: 4px solid #fff;
+                    animation: pulse 1s infinite;
+                `;
+                alertDiv.innerHTML = `
+                    <div style="text-align: center;">
+                        <div style="font-size: 3rem;">⚠️</div>
+                        <div style="font-weight: bold; margin: 1rem 0;">ZONA SIN COBRADOR</div>
+                        <div style="font-size: 1.2rem;">${formData.province} > ${formData.district} > ${formData.caserio}</div>
+                    </div>
+                `;
+                document.body.appendChild(alertDiv);
+                setTimeout(() => alertDiv.remove(), 5000);
+            }
+
             setShowModal(false);
             loadClients();
             resetForm();
@@ -212,37 +256,76 @@ export default function ClientManagement() {
         }
     };
 
+    // Estados para preview de importación
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
+    const [previewData, setPreviewData] = useState<any>(null);
+    const [importFile, setImportFile] = useState<File | null>(null);
+
     const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            if (!confirm('¿Está seguro de importar este archivo? Los clientes coincidentes por DNI serán actualizados.')) {
-                e.target.value = '';
-                return;
-            }
+            const file = e.target.files[0];
+            setImportFile(file);
 
             const formData = new FormData();
-            formData.append('file', e.target.files[0]);
+            formData.append('file', file);
 
             setLoading(true);
             try {
-                const res = await api.post('/admin/clients/import', formData, {
+                // Paso 1: Preview con IA
+                const res = await api.post('/admin/clients/import/preview', formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
-                const summary = res.data.summary;
-                alert(`Importación completada:\n- Total leídos: ${summary.total}\n- Creados: ${summary.imported}\n- Actualizados: ${summary.updated}\n- Errores: ${summary.errors.length}`);
 
-                if (summary.errors.length > 0) {
-                    console.error('Errores de importación:', summary.errors);
-                    alert('Se encontraron errores en algunas filas. Revise la consola (F12) para más detalles.');
-                }
-                loadClients();
+                setPreviewData(res.data);
+                setShowPreviewModal(true);
             } catch (error: any) {
-                console.error('Error importing clients:', error);
-                alert('Error al importar clientes. Verifique el formato del archivo.');
+                console.error('Error analyzing file:', error);
+                alert('Error al analizar el archivo. Verifique el formato.');
             } finally {
                 setLoading(false);
                 e.target.value = '';
             }
         }
+    };
+
+    const confirmImport = async () => {
+        if (!importFile || !previewData) return;
+
+        if (!confirm(`¿Confirmar importación de ${previewData.summary.totalRows} clientes?`)) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', importFile);
+        formData.append('mapping', JSON.stringify(previewData.mapping));
+
+        setLoading(true);
+        try {
+            const res = await api.post('/admin/clients/import/confirm', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            const summary = res.data.summary;
+            alert(`✅ Importación completada:\n- Total: ${summary.total}\n- Nuevos: ${summary.imported}\n- Actualizados: ${summary.updated}\n- Errores: ${summary.errors.length}`);
+
+            if (summary.errors.length > 0) {
+                console.error('Errores:', summary.errors);
+            }
+            loadClients();
+            setShowPreviewModal(false);
+            setPreviewData(null);
+            setImportFile(null);
+        } catch (error: any) {
+            console.error('Error importing:', error);
+            alert('Error al importar clientes.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const cancelImport = () => {
+        setShowPreviewModal(false);
+        setPreviewData(null);
+        setImportFile(null);
     };
 
     // State for Custom Location Inputs
@@ -253,6 +336,12 @@ export default function ClientManagement() {
         caserio: false
     });
 
+    // Session-based learned data to keep new locations available during the session
+    const [sessionLearnedData, setSessionLearnedData] = useState<Record<string, Record<string, string[]>>>(() => {
+        const saved = localStorage.getItem('learned_ubigeo_client');
+        return saved ? JSON.parse(saved) : {};
+    });
+
     const [availableLocations, setAvailableLocations] = useState({
         regions: regions,
         getProvinces: (region: string) => getProvinces(region),
@@ -261,17 +350,43 @@ export default function ClientManagement() {
     });
 
     useEffect(() => {
+        localStorage.setItem('learned_ubigeo_client', JSON.stringify(sessionLearnedData));
+    }, [sessionLearnedData]);
+
+    useEffect(() => {
+        // Start with static data
         const learnedData = JSON.parse(JSON.stringify(ubigeoData));
 
+        // Merge with session-learned data
+        Object.keys(sessionLearnedData).forEach(r => {
+            if (!learnedData[r]) learnedData[r] = {};
+            Object.keys(sessionLearnedData[r]).forEach(p => {
+                if (!learnedData[r][p]) learnedData[r][p] = [];
+                sessionLearnedData[r][p].forEach(d => {
+                    if (!learnedData[r][p].includes(d)) learnedData[r][p].push(d);
+                });
+            });
+        });
+
+        // Merge with data from existing clients
         clients.forEach(client => {
             if (!client.region) return;
             if (!learnedData[client.region]) learnedData[client.region] = {};
             if (client.province) {
-                if (!learnedData[client.region][client.province]) learnedData[client.region][client.province] = {};
+                if (!learnedData[client.region][client.province]) learnedData[client.region][client.province] = [];
                 if (client.district) {
-                    if (!learnedData[client.region][client.province][client.district]) learnedData[client.region][client.province][client.district] = [];
-                    if (client.caserio && !learnedData[client.region][client.province][client.district].includes(client.caserio)) {
-                        learnedData[client.region][client.province][client.district].push(client.caserio);
+                    // In our ubigeoData, districts are keys in province object, which contain array of caserios
+                    // BUT in ClientManagement lines 270-272 treated it as nested objects.
+                    // Correct structure: ubigeoData[region][province][district] = string[]
+
+                    // First ensure district exists as a key
+                    if (typeof learnedData[client.region][client.province] === 'object' && !Array.isArray(learnedData[client.region][client.province])) {
+                        if (!learnedData[client.region][client.province][client.district]) {
+                            learnedData[client.region][client.province][client.district] = [];
+                        }
+                        if (client.caserio && !learnedData[client.region][client.province][client.district].includes(client.caserio)) {
+                            learnedData[client.region][client.province][client.district].push(client.caserio);
+                        }
                     }
                 }
             }
@@ -284,12 +399,9 @@ export default function ClientManagement() {
             getCaserios: (region: string, province: string, district: string) => {
                 let allCaserios = region && province && district && learnedData[region]?.[province]?.[district] ? learnedData[region][province][district] : [];
 
-                // Filter by Zone if one is selected
                 if (formData.sector && definedZones.some(z => z.name === formData.sector)) {
                     const zone = definedZones.find(z => z.name === formData.sector);
                     if (zone) {
-                        // Only show caserios that are in this zone
-                        // Since our Zones are just lists of names, we filter based on name inclusion
                         allCaserios = allCaserios.filter((c: string) => zone.caserios.includes(c));
                     }
                 }
@@ -297,7 +409,7 @@ export default function ClientManagement() {
             }
         });
 
-    }, [clients, formData.sector, definedZones]);
+    }, [clients, formData.sector, definedZones, sessionLearnedData]);
 
     const filteredClients = clients.filter(c =>
         c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -320,14 +432,6 @@ export default function ClientManagement() {
                             </div>
                         </div>
                         <div className="d-flex gap-2">
-                            <button
-                                onClick={() => setShowZoneModal(true)}
-                                className="action-button"
-                                style={{ backgroundColor: '#6366f1', color: 'white' }}
-                                title="Gestionar Zonas y Rutas"
-                            >
-                                <MapPin size={18} className="me-2" /> Gestionar Zonas
-                            </button>
                             <input
                                 type="file"
                                 id="import-excel"
@@ -374,6 +478,7 @@ export default function ClientManagement() {
                                     <th className="table-th-dni">Código / DNI</th>
                                     <th className="table-th-client">Cliente</th>
                                     <th className="table-th-location">Ubicación (Sector)</th>
+                                    <th className="table-th-collector">Cobrador</th>
                                     <th className="table-th-plan">Dirección</th>
                                     <th className="table-th-cost">Plan/Costo</th>
                                     <th className="table-th-actions">Acciones</th>
@@ -396,6 +501,10 @@ export default function ClientManagement() {
                                         <td>
                                             <div className="badge bg-light text-dark border">{client.sector || 'Sin Sector'}</div>
                                             <div className="small text-muted mt-1">{client.caserio}</div>
+                                        </td>
+                                        <td>
+                                            <div className="fw-bold text-dark">{client.collector_name || 'No asignado'}</div>
+                                            <div className="small text-muted mt-1">ID: {client.collector_id || '-'}</div>
                                         </td>
                                         <td>
                                             <div className="fw-bold">{client.address}</div>
@@ -510,15 +619,24 @@ export default function ClientManagement() {
                                         <label>Región *</label>
                                         <div className="form-row-group">
                                             {isCustom.region ? (
-                                                <input
-                                                    name="region"
-                                                    value={formData.region}
-                                                    onChange={handleInputChange}
-                                                    className="form-input"
-                                                    placeholder="Ingrese nueva región"
-                                                    autoFocus
-                                                    title="Nueva Región"
-                                                />
+                                                <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                                                    <input
+                                                        name="region"
+                                                        value={formData.region}
+                                                        onChange={handleInputChange}
+                                                        className="form-input"
+                                                        placeholder="Nueva región"
+                                                        autoFocus
+                                                        title="Nueva Región"
+                                                    />
+                                                    <button type="button" onClick={() => {
+                                                        const val = formData.region.trim();
+                                                        if (val) {
+                                                            setSessionLearnedData(prev => ({ ...prev, [val]: prev[val] || {} }));
+                                                            setIsCustom(prev => ({ ...prev, region: false }));
+                                                        }
+                                                    }} className="btn btn-sm btn-primary">✓</button>
+                                                </div>
                                             ) : (
                                                 <select
                                                     name="region"
@@ -538,16 +656,8 @@ export default function ClientManagement() {
                                                 >
                                                     <option value="">Seleccione Región</option>
                                                     {availableLocations.regions.map(r => <option key={r} value={r}>{r}</option>)}
-                                                    <option value="CUSTOM_NEW" className="text-primary-bold">+ AGREGAR NUEVA REGIÓN</option>
+                                                    <option value="CUSTOM_NEW" style={{ color: '#FF6600', fontWeight: 'bold' }}>+ AGREGAR REGIÓN</option>
                                                 </select>
-                                            )}
-                                            {isCustom.region && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsCustom(prev => ({ ...prev, region: false }))}
-                                                    className="btn btn-sm btn-outline-error"
-                                                    title="Cancelar"
-                                                >✕</button>
                                             )}
                                         </div>
                                     </div>
@@ -556,15 +666,27 @@ export default function ClientManagement() {
                                         <label>Provincia *</label>
                                         <div className="form-row-group">
                                             {isCustom.province ? (
-                                                <input
-                                                    name="province"
-                                                    value={formData.province}
-                                                    onChange={handleInputChange}
-                                                    className="form-input"
-                                                    placeholder="Ingrese nueva provincia"
-                                                    autoFocus
-                                                    title="Nueva Provincia"
-                                                />
+                                                <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                                                    <input
+                                                        name="province"
+                                                        value={formData.province}
+                                                        onChange={handleInputChange}
+                                                        className="form-input"
+                                                        placeholder="Nueva provincia"
+                                                        autoFocus
+                                                        title="Nueva Provincia"
+                                                    />
+                                                    <button type="button" onClick={() => {
+                                                        const val = formData.province.trim();
+                                                        if (val && formData.region) {
+                                                            setSessionLearnedData(prev => ({
+                                                                ...prev,
+                                                                [formData.region]: { ...prev[formData.region], [val]: prev[formData.region]?.[val] || [] }
+                                                            }));
+                                                            setIsCustom(prev => ({ ...prev, province: false }));
+                                                        }
+                                                    }} className="btn btn-sm btn-primary">✓</button>
+                                                </div>
                                             ) : (
                                                 <select
                                                     name="province"
@@ -579,22 +701,14 @@ export default function ClientManagement() {
                                                         }
                                                     }}
                                                     className="form-input"
-                                                    disabled={!formData.region && !isCustom.region}
+                                                    disabled={!formData.region}
                                                     required
                                                     title="Seleccionar Provincia"
                                                 >
                                                     <option value="">Seleccione Provincia</option>
                                                     {availableLocations.getProvinces(formData.region).map(p => <option key={p} value={p}>{p}</option>)}
-                                                    <option value="CUSTOM_NEW" className="text-primary-bold">+ AGREGAR NUEVA PROVINCIA</option>
+                                                    <option value="CUSTOM_NEW" style={{ color: '#FF6600', fontWeight: 'bold' }}>+ AGREGAR PROVINCIA</option>
                                                 </select>
-                                            )}
-                                            {isCustom.province && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsCustom(prev => ({ ...prev, province: false }))}
-                                                    className="btn btn-sm btn-outline-error"
-                                                    title="Cancelar"
-                                                >✕</button>
                                             )}
                                         </div>
                                     </div>
@@ -603,15 +717,31 @@ export default function ClientManagement() {
                                         <label>Distrito *</label>
                                         <div className="form-row-group">
                                             {isCustom.district ? (
-                                                <input
-                                                    name="district"
-                                                    value={formData.district}
-                                                    onChange={handleInputChange}
-                                                    className="form-input"
-                                                    placeholder="Ingrese nuevo distrito"
-                                                    autoFocus
-                                                    title="Nuevo Distrito"
-                                                />
+                                                <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                                                    <input
+                                                        name="district"
+                                                        value={formData.district}
+                                                        onChange={handleInputChange}
+                                                        className="form-input"
+                                                        placeholder="Nuevo distrito"
+                                                        autoFocus
+                                                        title="Nuevo Distrito"
+                                                    />
+                                                    <button type="button" onClick={() => {
+                                                        const val = formData.district.trim();
+                                                        if (val && formData.region && formData.province) {
+                                                            const currentDistricts = sessionLearnedData[formData.region]?.[formData.province] || [];
+                                                            setSessionLearnedData(prev => ({
+                                                                ...prev,
+                                                                [formData.region]: {
+                                                                    ...prev[formData.region],
+                                                                    [formData.province]: [...new Set([...currentDistricts, val])]
+                                                                }
+                                                            }));
+                                                            setIsCustom(prev => ({ ...prev, district: false }));
+                                                        }
+                                                    }} className="btn btn-sm btn-primary">✓</button>
+                                                </div>
                                             ) : (
                                                 <select
                                                     name="district"
@@ -626,120 +756,249 @@ export default function ClientManagement() {
                                                         }
                                                     }}
                                                     className="form-input"
-                                                    disabled={!formData.province && !isCustom.province}
+                                                    disabled={!formData.province}
                                                     required
                                                     title="Seleccionar Distrito"
                                                 >
                                                     <option value="">Seleccione Distrito</option>
                                                     {availableLocations.getDistricts(formData.region, formData.province).map(d => <option key={d} value={d}>{d}</option>)}
-                                                    <option value="CUSTOM_NEW" className="text-primary-bold">+ AGREGAR NUEVO DISTRITO</option>
+                                                    <option value="CUSTOM_NEW" style={{ color: '#FF6600', fontWeight: 'bold' }}>+ AGREGAR DISTRITO</option>
                                                 </select>
-                                            )}
-                                            {isCustom.district && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsCustom(prev => ({ ...prev, district: false }))}
-                                                    className="btn btn-sm btn-outline-error"
-                                                    title="Cancelar"
-                                                >✕</button>
                                             )}
                                         </div>
                                     </div>
 
                                     <div className="form-group">
-                                        <label>Caserío / Localidad *</label>
+                                        <label>Caserío / Centro Poblado *</label>
                                         <div className="form-row-group">
-                                            {isCustom.caserio ? (
-                                                <input
-                                                    name="caserio"
-                                                    value={formData.caserio}
-                                                    onChange={handleInputChange}
-                                                    className="form-input"
-                                                    placeholder="Ingrese nuevo caserío"
-                                                    autoFocus
-                                                    title="Nuevo Caserío"
-                                                />
+                                            {isCustom.caserio || formData.caserio === 'OTRO' ? (
+                                                <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                                                    <input
+                                                        name="caserio"
+                                                        value={formData.caserio === 'OTRO' ? '' : formData.caserio}
+                                                        onChange={handleInputChange}
+                                                        className="form-input"
+                                                        placeholder="Nombre del caserío"
+                                                        autoFocus
+                                                        title="Nuevo Caserío"
+                                                        style={{ borderColor: '#FF6600' }}
+                                                    />
+                                                    <button type="button" onClick={() => setIsCustom(prev => ({ ...prev, caserio: false }))} className="btn btn-sm btn-primary">✓</button>
+                                                </div>
                                             ) : (
                                                 <select
                                                     name="caserio"
                                                     value={formData.caserio}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
-                                                        if (val === 'CUSTOM_NEW') {
+                                                        if (val === 'CUSTOM_NEW' || val === 'OTRO') {
                                                             setIsCustom(prev => ({ ...prev, caserio: true }));
                                                             setFormData(prev => ({ ...prev, caserio: '' }));
                                                         } else {
                                                             handleInputChange(e);
-                                                            // Auto-detect address zone if possible could be here
                                                         }
                                                     }}
                                                     className="form-input"
-                                                    disabled={!formData.district && !isCustom.district}
+                                                    disabled={!formData.district}
                                                     required
                                                     title="Seleccionar Caserío"
                                                 >
                                                     <option value="">Seleccione Caserío</option>
                                                     {availableLocations.getCaserios(formData.region, formData.province, formData.district).map(c => <option key={c} value={c}>{c}</option>)}
-                                                    <option value="CUSTOM_NEW" className="text-primary-bold">+ AGREGAR NUEVO CASERÍO</option>
+                                                    <option value="OTRO" style={{ color: '#FF6600', fontWeight: 'bold' }}>+ OTRO / AGREGAR</option>
                                                 </select>
-                                            )}
-                                            {isCustom.caserio && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsCustom(prev => ({ ...prev, caserio: false }))}
-                                                    className="btn btn-sm btn-outline-error"
-                                                    title="Cancelar"
-                                                >✕</button>
                                             )}
                                         </div>
                                     </div>
                                 </div>
 
-                                <h4 className="form-section-title">Dirección Exacta</h4>
+                                <h4 className="form-section-title">Dirección y Contacto</h4>
                                 <div className="form-grid">
-                                    <div className="form-group">
-                                        <label>Dirección / Calle *</label>
-                                        <input name="address" value={formData.address} onChange={handleInputChange} className="form-input" required placeholder="Ej: Av. Chorrillos" title="Calle Principal" />
+                                    <div className="form-group span-2">
+                                        <label>Dirección / Calle / Jr / Av *</label>
+                                        <input
+                                            name="address"
+                                            value={formData.address}
+                                            onChange={handleInputChange}
+                                            className="form-input"
+                                            required
+                                            placeholder="Ej: Jr. Lima 123"
+                                            title="Calle Principal"
+                                        />
                                     </div>
-                                    <div className="form-group">
-                                        <label>N° / Referencia</label>
-                                        <input name="addressDetails" value={formData.addressDetails} onChange={handleInputChange} className="form-input" placeholder="Ej: Mz18 Lt12" title="Detalle" />
-                                    </div>
-                                    <div className="form-group">
-                                        {/* Sector/Zona Removed from here */}
+                                    <div className="form-group span-2">
+                                        <label>Referencia o Detalles Adicionales</label>
+                                        <input
+                                            name="addressDetails"
+                                            value={formData.addressDetails}
+                                            onChange={handleInputChange}
+                                            className="form-input"
+                                            placeholder="Ej: Portón verde, frente al parque"
+                                            title="Referencia"
+                                        />
                                     </div>
                                 </div>
 
-                                <h4 className="form-section-title">Servicio</h4>
+                                <h4 className="form-section-title">Configuración del Servicio</h4>
                                 <div className="form-grid">
                                     <div className="form-group">
-                                        <label>Tipo de Plan</label>
-                                        <select name="planType" value={formData.planType} onChange={handleInputChange} className="form-input" title="Seleccionar Tipo de Plan">
-                                            <option value="INTERNET">Internet</option>
-                                            <option value="CABLE">Cable TV</option>
-                                            <option value="DUO">Dúo</option>
+                                        <label>Tipo de Plan *</label>
+                                        <select name="planType" value={formData.planType} onChange={handleInputChange} className="form-input" required title="Tipo de Plan">
+                                            <option value="INTERNET">Internet Solo</option>
+                                            <option value="CABLE">Cable TV Solo</option>
+                                            <option value="DUO">Internet + Cable (Dúo)</option>
                                         </select>
                                     </div>
                                     <div className="form-group">
-                                        <label>Costo (S/)</label>
-                                        <input type="number" name="cost" value={formData.cost} onChange={handleInputChange} className="form-input" step="0.50" title="Costo del Plan" />
+                                        <label>Costo Mensual (S/) *</label>
+                                        <input type="number" name="cost" value={formData.cost} onChange={handleInputChange} className="form-input" required step="0.50" title="Costo" />
                                     </div>
                                     <div className="form-group">
                                         <label>Día de Pago</label>
-                                        <input type="number" name="paymentDay" value={formData.paymentDay} onChange={handleInputChange} className="form-input" disabled title="Día de Pago" />
-                                        <small className="text-muted">Fijo: Día 7</small>
+                                        <div style={{ position: 'relative' }}>
+                                            <input type="number" name="paymentDay" value={formData.paymentDay} onChange={handleInputChange} className="form-input" disabled title="Día de Pago" style={{ backgroundColor: '#1a1a1a', color: '#888' }} />
+                                            <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#FF6600' }}>Fijo: 07</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="modal-footer">
-                                    <button type="button" onClick={() => setShowModal(false)} className="btn btn-outline">Cancelar</button>
-                                    <button type="submit" className="btn btn-primary">Guardar Cliente</button>
+                                <div className="modal-footer" style={{ borderTop: '1px solid #333', marginTop: '1.5rem', paddingTop: '1.5rem', display: 'flex', gap: '1rem' }}>
+                                    <button type="button" onClick={() => setShowModal(false)} className="btn btn-outline" style={{ flex: 1 }}>
+                                        Cancelar
+                                    </button>
+                                    <button type="submit" className="btn btn-primary" style={{ flex: 2 }}>
+                                        {isEditing ? 'Actualizar Cliente' : 'Guardar Cambios'}
+                                    </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                )
+                }
+
+                {/* Modal de Preview de Importación */}
+                {showPreviewModal && previewData && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10000
+                    }}>
+                        <div style={{
+                            backgroundColor: '#fff',
+                            borderRadius: '12px',
+                            padding: '2rem',
+                            maxWidth: '800px',
+                            maxHeight: '80vh',
+                            overflow: 'auto',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                        }}>
+                            <h2 style={{ marginBottom: '1rem', color: '#333' }}>🤖 Preview de Importación</h2>
+
+                            <div style={{ backgroundColor: '#f0f9ff', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                                <h3 style={{ color: '#0369a1' }}>📊 Resumen</h3>
+                                <p style={{ color: '#333' }}><strong>Total de filas:</strong> {previewData.summary.totalRows}</p>
+                                <p style={{ color: '#333' }}><strong>Con ubicación (tendrán cobrador):</strong> {previewData.summary.stats.withLocation}</p>
+                                <p style={{ color: '#333' }}><strong>Sin ubicación:</strong> {previewData.summary.stats.withoutLocation}</p>
+                            </div>
+
+                            {previewData.summary.warnings.length > 0 && (
+                                <div style={{ backgroundColor: '#fff3cd', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                                    <h3 style={{ color: '#856404' }}>⚠️ Advertencias</h3>
+                                    {previewData.summary.warnings.map((w: string, i: number) => (
+                                        <p key={i} style={{ margin: '0.25rem 0', color: '#856404' }}>{w}</p>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <h3 style={{ color: '#333' }}>🔍 Columnas Detectadas (IA)</h3>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ backgroundColor: '#f3f4f6' }}>
+                                            <th style={{ padding: '0.5rem', textAlign: 'left', border: '1px solid #ddd', color: '#333' }}>Campo</th>
+                                            <th style={{ padding: '0.5rem', textAlign: 'left', border: '1px solid #ddd', color: '#333' }}>Columna Excel</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {Object.entries(previewData.mapping).map(([field, col]: [string, any]) => (
+                                            <tr key={field}>
+                                                <td style={{ padding: '0.5rem', border: '1px solid #ddd', color: '#333' }}>{field}</td>
+                                                <td style={{ padding: '0.5rem', border: '1px solid #ddd', color: col ? '#16a34a' : '#dc2626' }}>
+                                                    {col || '❌ No detectado'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <h3 style={{ color: '#333' }}>👁️ Vista Previa (primeras 5 filas)</h3>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                    <thead>
+                                        <tr style={{ backgroundColor: '#f3f4f6' }}>
+                                            <th style={{ padding: '0.5rem', border: '1px solid #ddd', color: '#333' }}>DNI</th>
+                                            <th style={{ padding: '0.5rem', border: '1px solid #ddd', color: '#333' }}>Nombres</th>
+                                            <th style={{ padding: '0.5rem', border: '1px solid #ddd', color: '#333' }}>Distrito</th>
+                                            <th style={{ padding: '0.5rem', border: '1px solid #ddd', color: '#333' }}>Caserío</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {previewData.summary.preview.map((row: any, i: number) => (
+                                            <tr key={i}>
+                                                <td style={{ padding: '0.5rem', border: '1px solid #ddd', color: '#333' }}>{row.dni}</td>
+                                                <td style={{ padding: '0.5rem', border: '1px solid #ddd', color: '#333' }}>{row.nombres}</td>
+                                                <td style={{ padding: '0.5rem', border: '1px solid #ddd', color: '#333' }}>{row.distrito}</td>
+                                                <td style={{ padding: '0.5rem', border: '1px solid #ddd', color: '#333' }}>{row.caserio}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                                <button
+                                    onClick={cancelImport}
+                                    style={{
+                                        padding: '0.75rem 1.5rem',
+                                        backgroundColor: '#6b7280',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '1rem'
+                                    }}
+                                >
+                                    ❌ Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmImport}
+                                    style={{
+                                        padding: '0.75rem 1.5rem',
+                                        backgroundColor: '#10b981',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '1rem'
+                                    }}
+                                >
+                                    ✅ Confirmar Importación
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
             </div>
         </div>
     );
-}
+};
+
+export default ClientManagement;

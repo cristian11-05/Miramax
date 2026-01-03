@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
-import { getDistricts, getCaserios } from '../../data/ubigeo';
 import './ZoneAssignmentModal.css';
 
 interface ZoneAssignmentModalProps {
@@ -34,9 +33,17 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
             const { data } = await api.get('/admin/clients');
             setAllClients(data.clients || []);
 
-            // Initial active district
-            const districts = getDistricts(selectedRegion, selectedProvince);
-            if (districts.length > 0) setActiveDistrict(districts[0]);
+            // ========== OBTENER DISTRITOS ÚNICOS DESDE CLIENTES ==========
+            const uniqueDistricts = [...new Set(
+                data.clients
+                    .filter((c: any) => c.district && c.province === selectedProvince)
+                    .map((c: any) => c.district)
+            )].sort();
+
+            // Establecer primer distrito como activo
+            if (uniqueDistricts.length > 0) {
+                setActiveDistrict(uniqueDistricts[0]);
+            }
 
             // Try to infer current selections from clients already assigned to this collector
             const currentAssignments: Record<string, string[]> = {};
@@ -80,17 +87,13 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
         const newSelections = { ...selections };
 
         zone.caserios.forEach(caserioName => {
-            // Find district for this caserio (reverse lookup needed essentially, or search all districts)
-            // Since we know region/province (Otuzco), we can search districts
-            const districts = getDistricts(selectedRegion, selectedProvince);
-            for (const d of districts) {
-                const districtCaserios = getCaserios(selectedRegion, selectedProvince, d);
-                if (districtCaserios.includes(caserioName)) {
-                    if (!newSelections[d]) newSelections[d] = [];
-                    if (!newSelections[d].includes(caserioName)) {
-                        newSelections[d].push(caserioName);
-                    }
-                    break; // Found the district
+            // Buscar distrito para este caserío en los clientes reales
+            const clientWithCaserio = allClients.find((c: any) => c.caserio === caserioName);
+            if (clientWithCaserio && clientWithCaserio.district) {
+                const d = clientWithCaserio.district;
+                if (!newSelections[d]) newSelections[d] = [];
+                if (!newSelections[d].includes(caserioName)) {
+                    newSelections[d].push(caserioName);
                 }
             }
         });
@@ -99,34 +102,53 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
         setShowZoneSelector(false);
     };
 
-    // Calculate stats per district
+    // Calculate stats per district - OBTENER DE CLIENTES REALES
     const districtStats = useMemo(() => {
-        const districts = getDistricts(selectedRegion, selectedProvince);
-        return districts.map(d => {
-            const clientsInDistrict = allClients.filter(c => c.district === d);
+        // Obtener distritos únicos de los clientes
+        const uniqueDistricts = [...new Set(
+            allClients
+                .filter((c: any) => c.district && c.province === selectedProvince)
+                .map((c: any) => c.district)
+        )].sort();
+
+        return uniqueDistricts.map(d => {
+            const clientsInDistrict = allClients.filter((c: any) => c.district === d);
             const selectedCount = selections[d]?.length || 0;
-            const totalCaserios = getCaserios(selectedRegion, selectedProvince, d).length;
+
+            // Obtener caseríos únicos en ese distrito
+            const uniqueCaserios = [...new Set(
+                allClients
+                    .filter((c: any) => c.district === d && c.caserio)
+                    .map((c: any) => c.caserio)
+            )];
 
             return {
                 name: d,
                 totalClients: clientsInDistrict.length,
                 selectedCount,
-                totalCaserios,
-                isFull: selectedCount > 0 && selectedCount === totalCaserios
+                totalCaserios: uniqueCaserios.length,
+                isFull: selectedCount > 0 && selectedCount === uniqueCaserios.length
             };
         });
-    }, [allClients, selections, selectedProvince, selectedRegion]);
+    }, [allClients, selections, selectedProvince]);
 
-    // Calculate details for active district
+    // Calculate details for active district - OBTENER CASERÍOS DE CLIENTES REALES
     const caserioStats = useMemo(() => {
         if (!activeDistrict) return [];
-        const allPossible = getCaserios(selectedRegion, selectedProvince, activeDistrict);
+
+        // Obtener caseríos únicos en el distrito activo
+        const uniqueCaserios = [...new Set(
+            allClients
+                .filter((c: any) => c.district === activeDistrict && c.caserio)
+                .map((c: any) => c.caserio)
+        )].sort();
+
         const selectedList = selections[activeDistrict] || [];
 
-        return allPossible.map(name => {
-            const clients = allClients.filter(c => c.district === activeDistrict && c.caserio === name);
-            const isAssignedToOther = clients.some(c => c.collector_id && c.collector_id !== collector.id);
-            const isAssignedToMe = clients.every(c => c.collector_id === collector.id) && clients.length > 0;
+        return uniqueCaserios.map(name => {
+            const clients = allClients.filter((c: any) => c.district === activeDistrict && c.caserio === name);
+            const isAssignedToOther = clients.some((c: any) => c.collector_id && c.collector_id !== collector.id);
+            const isAssignedToMe = clients.every((c: any) => c.collector_id === collector.id) && clients.length > 0;
 
             return {
                 name,
@@ -134,10 +156,10 @@ export default function ZoneAssignmentModal({ collector, onClose, onSuccess }: Z
                 isSelected: selectedList.includes(name),
                 isAssignedToOther,
                 isAssignedToMe,
-                sample: clients.slice(0, 2).map(c => c.full_name).join(', ')
+                sample: clients.slice(0, 2).map((c: any) => c.full_name).join(', ')
             };
         });
-    }, [activeDistrict, allClients, selections, collector.id, selectedProvince, selectedRegion]);
+    }, [activeDistrict, allClients, selections, collector.id]);
 
     const toggleCaserio = (caserio: string) => {
         setSelections(prev => {

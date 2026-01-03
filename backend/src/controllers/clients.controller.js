@@ -3,7 +3,7 @@ import xlsx from 'xlsx';
 
 /**
  * Bulk Import Clients from Excel
- * Expected columns: DNI, Nombres, Direccion, Telefono, Zona, Sector, Plan, Costo
+ * Expected columns: DNI, Nombres, Direccion, Telefono, Provincia, Distrito, Caserio, Sector, Plan, Costo
  */
 export const importClients = async (req, res) => {
     try {
@@ -11,7 +11,14 @@ export const importClients = async (req, res) => {
             return res.status(400).json({ error: 'No se subió ningún archivo.' });
         }
 
-        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        let workbook;
+        if (req.file.buffer) {
+            workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        } else if (req.file.path) {
+            workbook = xlsx.readFile(req.file.path);
+        } else {
+            return res.status(400).json({ error: 'No se pudo leer el archivo.' });
+        }
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const data = xlsx.utils.sheet_to_json(sheet);
@@ -39,12 +46,63 @@ export const importClients = async (req, res) => {
                 // Normalizar datos
                 const dni = String(row.DNI).trim();
                 const fullName = String(row.Nombres).trim();
-                const address = row.Direccion ? String(row.Direccion).trim() : '';
                 const phone = row.Telefono ? String(row.Telefono).trim() : '';
-                const zone = row.Zona ? String(row.Zona).trim() : 'Sin Zona';
+                const address = row.Direccion ? String(row.Direccion).trim() : '';
+
+                // Ubicación geográfica
+                const region = row.Region || 'La Libertad';
+                const province = row.Provincia || 'Otuzco';
+                const district = row.Distrito || '';
+                const caserio = row.Caserio || '';
                 const sector = row.Sector ? String(row.Sector).trim() : '';
-                const plan = row.Plan ? String(row.Plan).trim() : 'Básico';
-                const cost = parseFloat(row.Costo) || 0;
+                const zone = row.Zona || caserio || district; // Backwards compatibility
+
+                // Plan y costos
+                const plan = row.Plan ? String(row.Plan).trim() : 'Plan Básico';
+                const cost = parseFloat(row.Costo) || 50;
+                const planType = 'INTERNET'; // Por defecto
+
+                // ========== AUTO-ASIGNACIÓN DE COBRADOR ==========
+                let autoCollectorId = null;
+
+                if (caserio && district) {
+                    // Nivel 1: Buscar por caserío específico
+                    const [caserioResult] = await connection.query(`
+                        SELECT DISTINCT collector_id 
+                        FROM clients
+                        WHERE caserio = ? AND district = ? AND collector_id IS NOT NULL
+                        LIMIT 1
+                    `, [caserio, district]);
+                    if (caserioResult.length > 0) {
+                        autoCollectorId = caserioResult[0].collector_id;
+                    }
+                }
+
+                if (!autoCollectorId && district) {
+                    // Nivel 2: Buscar por distrito
+                    const [districtResult] = await connection.query(`
+                        SELECT DISTINCT collector_id 
+                        FROM clients
+                        WHERE district = ? AND collector_id IS NOT NULL
+                        LIMIT 1
+                    `, [district]);
+                    if (districtResult.length > 0) {
+                        autoCollectorId = districtResult[0].collector_id;
+                    }
+                }
+
+                if (!autoCollectorId && province) {
+                    // Nivel 3: Buscar por provincia
+                    const [provinceResult] = await connection.query(`
+                        SELECT DISTINCT collector_id 
+                        FROM clients
+                        WHERE province = ? AND collector_id IS NOT NULL
+                        LIMIT 1
+                    `, [province]);
+                    if (provinceResult.length > 0) {
+                        autoCollectorId = provinceResult[0].collector_id;
+                    }
+                }
 
                 // Check if client exists
                 const [existing] = await connection.query('SELECT id FROM clients WHERE dni = ?', [dni]);
@@ -53,16 +111,25 @@ export const importClients = async (req, res) => {
                     // Update
                     await connection.query(`
                         UPDATE clients SET 
-                            full_name = ?, address = ?, phone = ?, zone = ?, sector = ?, internet_plan = ?, installation_cost = ?
+                            full_name = ?, phone = ?, address = ?,
+                            region = ?, province = ?, district = ?, caserio = ?, zone = ?, sector = ?,
+                            plan = ?, plan_type = ?, cost = ?,
+                            collector_id = ?
                         WHERE id = ?
-                    `, [fullName, address, phone, zone, sector, plan, cost, existing[0].id]);
+                    `, [fullName, phone, address, region, province, district, caserio, zone, sector,
+                        plan, planType, cost, autoCollectorId, existing[0].id]);
                     summary.updated++;
                 } else {
-                    // Insert
+                    // Insert new client
                     await connection.query(`
-                        INSERT INTO clients (dni, full_name, address, phone, zone, sector, internet_plan, installation_cost, status)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
-                    `, [dni, fullName, address, phone, zone, sector, plan, cost]);
+                        INSERT INTO clients (
+                            dni, full_name, phone, address,
+                            region, province, district, caserio, zone, sector,
+                            plan_type, plan, cost, collector_id, service_status
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+                    `, [dni, fullName, phone, address, region, province, district, caserio, zone, sector,
+                        planType, plan, cost, autoCollectorId]);
                     summary.imported++;
                 }
             }

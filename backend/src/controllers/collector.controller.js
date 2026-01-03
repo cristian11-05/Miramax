@@ -152,7 +152,8 @@ export const getCollectorStats = async (req, res) => {
 // Placeholder funciones (implementar después)
 export const registerFieldPayment = async (req, res) => {
     try {
-        const collectorId = req.user.id;
+        // Si es admin, collectorId es null
+        const collectorId = req.user.role === 'admin' ? null : req.user.id;
         const body = req.body;
         const clientId = body.clientId;
         const amount = body.amount;

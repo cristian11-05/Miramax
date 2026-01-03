@@ -5,13 +5,13 @@ import { processCollectorQuery } from '../services/groq.service.js';
 export const chatWithAssistant = async (req, res) => {
     try {
         const { query: userQuery } = req.body;
-        const collectorId = req.user.id; // From JWT middleware
+        const { id: userId, role } = req.user; // From JWT middleware
 
         if (!userQuery) {
             return res.status(400).json({ error: 'La consulta es requerida.' });
         }
 
-        const response = await processCollectorQuery(collectorId, userQuery);
+        const response = await processCollectorQuery(userId, userQuery, role);
 
         // Guardar interacción (opcional)
         // await saveInteractionLog(...)

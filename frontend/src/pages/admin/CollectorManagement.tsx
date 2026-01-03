@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { regions, getProvinces, getDistricts } from '../../data/ubigeo';
+import { regions, getProvinces, getDistricts, ubigeoData } from '../../data/ubigeo';
 import ZoneAssignmentModal from '../../components/admin/ZoneAssignmentModal';
 
 interface Collector {
@@ -34,9 +34,130 @@ export default function CollectorManagement() {
         status: 'active'
     });
 
+    const [isAddingNew, setIsAddingNew] = useState({
+        region: false,
+        province: false,
+        district: false
+    });
+
+    const [tempInputs, setTempInputs] = useState({
+        region: '',
+        province: '',
+        district: ''
+    });
+
+    // Sesión de datos aprendidos compartida con Clientes
+    const [sessionLearnedData, setSessionLearnedData] = useState<Record<string, Record<string, string[]>>>(() => {
+        const saved = localStorage.getItem('learned_ubigeo_client');
+        return saved ? JSON.parse(saved) : {};
+    });
+
+    const [availableLocations, setAvailableLocations] = useState({
+        regions: regions,
+        getProvinces: (region: string) => getProvinces(region),
+        getDistricts: (region: string, province: string) => getDistricts(region, province)
+    });
+
+    useEffect(() => {
+        localStorage.setItem('learned_ubigeo_client', JSON.stringify(sessionLearnedData));
+    }, [sessionLearnedData]);
+
     useEffect(() => {
         loadCollectors();
     }, []);
+
+    useEffect(() => {
+        // Empezamos con datos estáticos
+        const learnedData = JSON.parse(JSON.stringify(ubigeoData));
+
+        // Fusionar con datos aprendidos en la sesión (de Clientes)
+        Object.keys(sessionLearnedData).forEach(r => {
+            if (!learnedData[r]) learnedData[r] = {};
+            Object.keys(sessionLearnedData[r]).forEach(p => {
+                if (!learnedData[r][p]) learnedData[r][p] = [];
+                sessionLearnedData[r][p].forEach(d => {
+                    if (Array.isArray(learnedData[r][p])) {
+                        if (!learnedData[r][p].includes(d)) learnedData[r][p].push(d);
+                    } else if (typeof learnedData[r][p] === 'object') {
+                        // @ts-ignore
+                        if (!learnedData[r][p][d]) learnedData[r][p][d] = [];
+                    }
+                });
+            });
+        });
+
+        setAvailableLocations({
+            regions: Object.keys(learnedData),
+            getProvinces: (region: string) => region && learnedData[region] ? Object.keys(learnedData[region]) : [],
+            getDistricts: (region: string, province: string) =>
+                region && province && learnedData[region]?.[province]
+                    ? (Array.isArray(learnedData[region][province]) ? learnedData[region][province] : Object.keys(learnedData[region][province]))
+                    : []
+        });
+
+    }, [collectors, sessionLearnedData]);
+
+    const handleLocationChange = (level: 'region' | 'province' | 'district', value: string) => {
+        const parts = formData.zone.split(' - ');
+        let region = parts[0] || '';
+        let province = parts[1] || '';
+        let district = parts[2] || '';
+
+        if (value === 'ADD_NEW') {
+            setIsAddingNew(prev => ({ ...prev, [level]: true }));
+            return;
+        }
+
+        if (level === 'region') {
+            region = value;
+            province = '';
+            district = '';
+        } else if (level === 'province') {
+            province = value;
+            district = '';
+        } else {
+            district = value;
+        }
+
+        const newZone = [region, province, district].filter(Boolean).join(' - ');
+        setFormData(prev => ({ ...prev, zone: newZone }));
+    };
+
+    const confirmNewLocation = (level: 'region' | 'province' | 'district') => {
+        const val = tempInputs[level].trim().toUpperCase();
+        if (!val) {
+            setIsAddingNew(prev => ({ ...prev, [level]: false }));
+            return;
+        }
+
+        const parts = formData.zone.split(' - ');
+        let region = parts[0] || '';
+        let province = parts[1] || '';
+
+        if (level === 'region') {
+            setSessionLearnedData(prev => ({ ...prev, [val]: prev[val] || {} }));
+            handleLocationChange('region', val);
+        } else if (level === 'province' && region) {
+            setSessionLearnedData(prev => ({
+                ...prev,
+                [region]: { ...prev[region], [val]: prev[region]?.[val] || [] }
+            }));
+            handleLocationChange('province', val);
+        } else if (level === 'district' && region && province) {
+            setSessionLearnedData(prev => {
+                const r = prev[region] || {};
+                const p = r[province] || [];
+                if (!p.includes(val)) {
+                    return { ...prev, [region]: { ...r, [province]: [...p, val] } };
+                }
+                return prev;
+            });
+            handleLocationChange('district', val);
+        }
+
+        setTempInputs(prev => ({ ...prev, [level]: '' }));
+        setIsAddingNew(prev => ({ ...prev, [level]: false }));
+    };
 
     const loadCollectors = async () => {
         try {
@@ -311,59 +432,125 @@ export default function CollectorManagement() {
                                     </div>
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">Zona de Asignación (Ubicación)</label>
-                                    <div style={{ display: 'grid', gap: '0.5rem' }}>
-                                        <select
-                                            className="form-input"
-                                            value={formData.zone.split(' - ')[0] || ''} // Try to parse existing zone
-                                            onChange={e => {
-                                                const region = e.target.value;
-                                                setFormData({ ...formData, zone: region }); // Reset to just region
-                                            }}
-                                            aria-label="Seleccionar Región"
-                                            title="Seleccione la región"
-                                        >
-                                            <option value="">Seleccione Región</option>
-                                            {regions.map(r => <option key={r} value={r}>{r}</option>)}
-                                        </select>
+                                    <label className="form-label" style={{ color: '#f1f5f9', fontWeight: 600 }}>Zona de Asignación (Ubicación)</label>
+                                    <div style={{
+                                        display: 'grid',
+                                        gap: '0.875rem',
+                                        padding: '1.25rem',
+                                        background: '#1e293b',
+                                        borderRadius: '16px',
+                                        border: '1px solid rgba(255, 102, 0, 0.4)',
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                                    }}>
+                                        {/* REGION SECTION */}
+                                        <div className="location-level">
+                                            {isAddingNew.region ? (
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    <input
+                                                        type="text"
+                                                        className="form-input"
+                                                        placeholder="Nombre de la Región..."
+                                                        value={tempInputs.region}
+                                                        onChange={e => setTempInputs({ ...tempInputs, region: e.target.value })}
+                                                        autoFocus
+                                                        style={{ background: '#ffffff', color: '#1a1a1a', borderColor: '#FF6600' }}
+                                                    />
+                                                    <button type="button" onClick={() => confirmNewLocation('region')} className="btn btn-primary" style={{ padding: '0 1rem' }} title="Confirmar">✓</button>
+                                                    <button type="button" onClick={() => setIsAddingNew({ ...isAddingNew, region: false })} className="btn btn-outline" style={{ padding: '0 1rem', background: '#334155' }} title="Cancelar">×</button>
+                                                </div>
+                                            ) : (
+                                                <select
+                                                    className="form-input"
+                                                    value={formData.zone.split(' - ')[0] || ''}
+                                                    onChange={e => handleLocationChange('region', e.target.value)}
+                                                    style={{ background: '#ffffff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 500 }}
+                                                    title="Seleccionar Región"
+                                                >
+                                                    <option value="">-- Seleccione Región --</option>
+                                                    {availableLocations.regions.map((r: string) => (
+                                                        <option key={r} value={r}>{r}</option>
+                                                    ))}
+                                                    <option value="ADD_NEW" style={{ color: '#FF6600', fontWeight: 'bold' }}>+ AGREGAR REGIÓN</option>
+                                                </select>
+                                            )}
+                                        </div>
 
+                                        {/* PROVINCE SECTION */}
                                         {formData.zone.split(' - ')[0] && (
-                                            <select
-                                                className="form-input"
-                                                value={formData.zone.split(' - ')[1] || ''}
-                                                onChange={e => {
-                                                    const parts = formData.zone.split(' - ');
-                                                    const region = parts[0];
-                                                    const province = e.target.value;
-                                                    setFormData({ ...formData, zone: `${region} - ${province}` });
-                                                }}
-                                                aria-label="Seleccionar Provincia"
-                                                title="Seleccione la provincia"
-                                            >
-                                                <option value="">Seleccione Provincia (Todas)</option>
-                                                {getProvinces(formData.zone.split(' - ')[0]).map(p => <option key={p} value={p}>{p}</option>)}
-                                            </select>
+                                            <div className="location-level">
+                                                {isAddingNew.province ? (
+                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="text"
+                                                            className="form-input"
+                                                            placeholder="Nombre de la Provincia..."
+                                                            value={tempInputs.province}
+                                                            onChange={e => setTempInputs({ ...tempInputs, province: e.target.value })}
+                                                            autoFocus
+                                                            style={{ background: '#ffffff', color: '#1a1a1a', borderColor: '#FF6600' }}
+                                                        />
+                                                        <button type="button" onClick={() => confirmNewLocation('province')} className="btn btn-primary" style={{ padding: '0 1rem' }} title="Confirmar">✓</button>
+                                                        <button type="button" onClick={() => setIsAddingNew({ ...isAddingNew, province: false })} className="btn btn-outline" style={{ padding: '0 1rem', background: '#334155' }} title="Cancelar">×</button>
+                                                    </div>
+                                                ) : (
+                                                    <select
+                                                        className="form-input"
+                                                        value={formData.zone.split(' - ')[1] || ''}
+                                                        onChange={e => handleLocationChange('province', e.target.value)}
+                                                        style={{ background: '#ffffff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 500 }}
+                                                        title="Seleccionar Provincia"
+                                                    >
+                                                        <option value="">-- Seleccione Provincia --</option>
+                                                        {availableLocations.getProvinces(formData.zone.split(' - ')[0]).map((p: string) => (
+                                                            <option key={p} value={p}>{p}</option>
+                                                        ))}
+                                                        <option value="ADD_NEW" style={{ color: '#FF6600', fontWeight: 'bold' }}>+ AGREGAR PROVINCIA</option>
+                                                    </select>
+                                                )}
+                                            </div>
                                         )}
 
+                                        {/* DISTRICT SECTION */}
                                         {formData.zone.split(' - ')[1] && (
-                                            <select
-                                                className="form-input"
-                                                value={formData.zone.split(' - ')[2] || ''}
-                                                onChange={e => {
-                                                    const parts = formData.zone.split(' - ');
-                                                    const region = parts[0];
-                                                    const province = parts[1];
-                                                    const district = e.target.value;
-                                                    setFormData({ ...formData, zone: `${region} - ${province} - ${district}` });
-                                                }}
-                                                aria-label="Seleccionar Distrito"
-                                                title="Seleccione el distrito"
-                                            >
-                                                <option value="">Seleccione Distrito (Todos)</option>
-                                                {getDistricts(formData.zone.split(' - ')[0], formData.zone.split(' - ')[1]).map(d => <option key={d} value={d}>{d}</option>)}
-                                            </select>
+                                            <div className="location-level">
+                                                {isAddingNew.district ? (
+                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                        <input
+                                                            type="text"
+                                                            className="form-input"
+                                                            placeholder="Nombre del Distrito..."
+                                                            value={tempInputs.district}
+                                                            onChange={e => setTempInputs({ ...tempInputs, district: e.target.value })}
+                                                            autoFocus
+                                                            style={{ background: '#ffffff', color: '#1a1a1a', borderColor: '#FF6600' }}
+                                                        />
+                                                        <button type="button" onClick={() => confirmNewLocation('district')} className="btn btn-primary" style={{ padding: '0 1rem' }} title="Confirmar">✓</button>
+                                                        <button type="button" onClick={() => setIsAddingNew({ ...isAddingNew, district: false })} className="btn btn-outline" style={{ padding: '0 1rem', background: '#334155' }} title="Cancelar">×</button>
+                                                    </div>
+                                                ) : (
+                                                    <select
+                                                        className="form-input"
+                                                        value={formData.zone.split(' - ')[2] || ''}
+                                                        onChange={e => handleLocationChange('district', e.target.value)}
+                                                        style={{ background: '#ffffff', color: '#1e293b', borderColor: '#cbd5e1', fontWeight: 500 }}
+                                                        title="Seleccionar Distrito"
+                                                    >
+                                                        <option value="">-- Seleccione Distrito --</option>
+                                                        {availableLocations.getDistricts(formData.zone.split(' - ')[0], formData.zone.split(' - ')[1]).map((d: string) => (
+                                                            <option key={d} value={d}>{d}</option>
+                                                        ))}
+                                                        <option value="ADD_NEW" style={{ color: '#FF6600', fontWeight: 'bold' }}>+ AGREGAR DISTRITO</option>
+                                                    </select>
+                                                )}
+                                            </div>
                                         )}
-                                        <small className="text-gray-500 text-sm">Zona Actual: {formData.zone || 'No asignada'}</small>
+
+                                        <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '12px', color: '#64748b' }}>📍 Selección:</span>
+                                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc' }}>
+                                                {formData.zone || 'Ninguna'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="form-group">

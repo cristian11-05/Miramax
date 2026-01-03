@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import pool from './config/database.js';
 
 // Rutas
 import clientRoutes from './routes/client.routes.js';
@@ -10,13 +11,11 @@ import collectorRoutes from './routes/collector.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import { runAutoMigrations } from './services/migration.service.js';
 
-
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // ==================== MIDDLEWARE ====================
 
@@ -75,7 +74,7 @@ app.get('/api/health', async (req, res) => {
     let dnsResult = null;
 
     try {
-        const dns = require('dns').promises;
+        const dns = (await import('dns')).promises;
         const hostToTest = (process.env.DB_HOST || 'mysql-305387e2-zavaletacristianbd.j.aivencloud.com').trim();
         dnsResult = await dns.lookup(hostToTest).then(addr => `OK: ${addr.address}`).catch(e => `Error DNS: ${e.message}`);
     } catch (e) {
@@ -133,8 +132,6 @@ app.use((err, req, res, next) => {
 });
 
 // ==================== INICIO DEL SERVIDOR ====================
-
-import pool from './config/database.js';
 
 app.listen(PORT, async () => {
     console.log(`

@@ -6,33 +6,24 @@ dotenv.config();
 // Configuración de conexión flexible y robusta
 let pool;
 
+const dbConfig = {
+    host: (process.env.DB_HOST || 'localhost').trim(),
+    user: (process.env.DB_USER || 'avnadmin').trim(),
+    password: (process.env.DB_PASSWORD || '').trim(),
+    database: (process.env.DB_NAME || 'defaultdb').trim(),
+    port: parseInt(process.env.DB_PORT || '16851', 10),
+    ssl: (process.env.DB_SSL || 'false').trim().toLowerCase() === 'true' ? { rejectUnauthorized: false } : undefined,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+};
+
 if (process.env.DATABASE_URL) {
-    // Si hay una URL completa, la usamos directamente (es lo más seguro para Aiven)
-    const dbUri = process.env.DATABASE_URL.trim();
     console.log('🔗 Usando DATABASE_URL para la conexión');
-    pool = mysql.createPool(dbUri);
+    pool = mysql.createPool(process.env.DATABASE_URL.trim());
 } else {
-    // Si no, usamos campos individuales
-    const host = (process.env.DB_HOST || '').trim();
-    const user = (process.env.DB_USER || '').trim();
-    const pass = (process.env.DB_PASSWORD || '').trim();
-    const name = (process.env.DB_NAME || '').trim();
-    const port = parseInt(process.env.DB_PORT || '16851', 10);
-    const ssl = (process.env.DB_SSL || 'false').trim().toLowerCase() === 'true';
-
-    console.log(`🔗 Conectando a ${host}:${port} (SSL: ${ssl})`);
-
-    pool = mysql.createPool({
-        host: host || 'localhost',
-        port: port,
-        user: user || 'avnadmin',
-        password: pass,
-        database: name || 'defaultdb',
-        ssl: ssl ? { rejectUnauthorized: false } : undefined,
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0
-    });
+    console.log(`🔗 Conectando a ${dbConfig.host}:${dbConfig.port} (SSL: ${!!dbConfig.ssl})`);
+    pool = mysql.createPool(dbConfig);
 }
 
 // Función helper para ejecutar queries

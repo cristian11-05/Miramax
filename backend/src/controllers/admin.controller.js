@@ -83,7 +83,14 @@ export const getDashboardStats = async (req, res) => {
 
 export const getAllClients = async (req, res) => {
     try {
-        const result = await query('SELECT * FROM clients ORDER BY sector ASC, address ASC LIMIT 100');
+        const sql = `
+            SELECT c.*, col.full_name as collector_name 
+            FROM clients c 
+            LEFT JOIN collectors col ON c.collector_id = col.id 
+            ORDER BY c.sector ASC, c.address ASC 
+            LIMIT 100
+        `;
+        const result = await query(sql);
         res.json({ clients: result.rows });
     } catch (error) {
         console.error('Error al obtener clientes:', error);
@@ -98,7 +105,7 @@ export const createClient = async (req, res) => {
             region, province, district, caserio, zone, sector,
             address, addressDetails, contractNumber,
             planType, plan, internetSpeed, cost,
-            startDate, paymentDay
+            startDate, paymentDay, collectorId
         } = req.body;
 
         if (!dni || !fullName || !region) {
@@ -108,19 +115,59 @@ export const createClient = async (req, res) => {
         // Asignación simple de zona basada en el input (o automática si fuese lógica compleja)
         const assignedZone = zone || caserio || district;
 
-        // Intentar asignar un cobrador automáticamente basado en la zona
-        let collectorId = null;
-        if (assignedZone) {
-            const collectors = await query("SELECT id FROM collectors WHERE zone LIKE ? LIMIT 1", [`%${assignedZone}%`]);
-            if (collectors.rows.length > 0) {
-                collectorId = collectors.rows[0].id;
+        // ========== AUTO-ASIGNACIÓN JERÁRQUICA DE COBRADOR ==========
+        let autoCollectorId = null;
+
+        // Nivel 1: Buscar por caserío específico
+        if (caserio && district) {
+            const caserioQuery = `
+                SELECT DISTINCT cl.collector_id 
+                FROM clients cl
+                WHERE cl.caserio = ? AND cl.district = ? AND cl.collector_id IS NOT NULL
+                LIMIT 1
+            `;
+            const caserioResult = await query(caserioQuery, [caserio, district]);
+            if (caserioResult.rows[0]) {
+                autoCollectorId = caserioResult.rows[0].collector_id;
+                console.log(`✅ Cobrador auto-asignado por caserío: ${caserio} → ${autoCollectorId}`);
             }
         }
 
-        // Fallback to first active collector if no specific match
-        if (!collectorId) {
-            const anyCollector = await query("SELECT id FROM collectors WHERE status='active' LIMIT 1");
-            if (anyCollector.rows.length > 0) collectorId = anyCollector.rows[0].id;
+        // Nivel 2: Buscar por distrito completo (si no se encontró en nivel 1)
+        if (!autoCollectorId && district) {
+            const districtQuery = `
+                SELECT DISTINCT cl.collector_id 
+                FROM clients cl
+                WHERE cl.district = ? AND cl.collector_id IS NOT NULL
+                LIMIT 1
+            `;
+            const districtResult = await query(districtQuery, [district]);
+            if (districtResult.rows[0]) {
+                autoCollectorId = districtResult.rows[0].collector_id;
+                console.log(`✅ Cobrador auto-asignado por distrito: ${district} → ${autoCollectorId}`);
+            }
+        }
+
+        // Nivel 3: Buscar por provincia completa (si no se encontró en nivel 2)
+        if (!autoCollectorId && province) {
+            const provinceQuery = `
+                SELECT DISTINCT cl.collector_id 
+                FROM clients cl
+                WHERE cl.province = ? AND cl.collector_id IS NOT NULL
+                LIMIT 1
+            `;
+            const provinceResult = await query(provinceQuery, [province]);
+            if (provinceResult.rows[0]) {
+                autoCollectorId = provinceResult.rows[0].collector_id;
+                console.log(`✅ Cobrador auto-asignado por provincia: ${province} → ${autoCollectorId}`);
+            }
+        }
+
+        // Si collectorId viene explícito del frontend, priorizarlo (backward compatibility)
+        const finalCollectorId = collectorId || autoCollectorId;
+
+        if (!finalCollectorId) {
+            console.warn(`⚠️ Cliente sin cobrador: ${province} > ${district} > ${caserio}`);
         }
 
         const insertMeta = await query(`
@@ -136,7 +183,7 @@ export const createClient = async (req, res) => {
             region || null, province || null, district || null, caserio || null, assignedZone || null, sector || null,
             address || null, addressDetails || null, contractNumber || null,
             planType || 'INTERNET', plan || (planType === 'INTERNET' ? `Internet ${internetSpeed}` : 'Plan Básico'), internetSpeed || null, cost || 0,
-            startDate || new Date(), paymentDay || 7, collectorId || null
+            startDate || new Date(), paymentDay || 7, finalCollectorId
         ]);
 
         const clientId = insertMeta.insertId || insertMeta.rows.insertId;
@@ -172,6 +219,7 @@ export const updateClient = async (req, res) => {
     try {
         const { id } = req.params;
         const body = req.body;
+        const collectorId = body.collectorId || body.collector_id;
         // Support both camelCase (frontend forms) and snake_case (database/raw objects)
         const code = body.code;
         const dni = body.dni;
@@ -194,6 +242,65 @@ export const updateClient = async (req, res) => {
         const paymentDay = body.paymentDay || body.payment_day;
         const service_status = body.service_status;
 
+        // ========== AUTO-ASIGNACIÓN JERÁRQUICA DE COBRADOR ==========
+        let finalCollectorId = collectorId; // Si viene del frontend
+
+        // Si no viene collector y hay datos de ubicación, auto-asignar
+        if (!finalCollectorId && (caserio || district || province)) {
+            let autoCollectorId = null;
+
+            // Nivel 1: Buscar por caserío específico
+            if (caserio && district) {
+                const caserioQuery = `
+                    SELECT DISTINCT cl.collector_id 
+                    FROM clients cl
+                    WHERE cl.caserio = ? AND cl.district = ? AND cl.collector_id IS NOT NULL
+                    LIMIT 1
+                `;
+                const caserioResult = await query(caserioQuery, [caserio, district]);
+                if (caserioResult.rows[0]) {
+                    autoCollectorId = caserioResult.rows[0].collector_id;
+                    console.log(`✅ [UPDATE] Cobrador por caserío: ${caserio} → ${autoCollectorId}`);
+                }
+            }
+
+            // Nivel 2: Buscar por distrito
+            if (!autoCollectorId && district) {
+                const districtQuery = `
+                    SELECT DISTINCT cl.collector_id 
+                    FROM clients cl
+                    WHERE cl.district = ? AND cl.collector_id IS NOT NULL
+                    LIMIT 1
+                `;
+                const districtResult = await query(districtQuery, [district]);
+                if (districtResult.rows[0]) {
+                    autoCollectorId = districtResult.rows[0].collector_id;
+                    console.log(`✅ [UPDATE] Cobrador por distrito: ${district} → ${autoCollectorId}`);
+                }
+            }
+
+            // Nivel 3: Buscar por provincia
+            if (!autoCollectorId && province) {
+                const provinceQuery = `
+                    SELECT DISTINCT cl.collector_id 
+                    FROM clients cl
+                    WHERE cl.province = ? AND cl.collector_id IS NOT NULL
+                    LIMIT 1
+                `;
+                const provinceResult = await query(provinceQuery, [province]);
+                if (provinceResult.rows[0]) {
+                    autoCollectorId = provinceResult.rows[0].collector_id;
+                    console.log(`✅ [UPDATE] Cobrador por provincia: ${province} → ${autoCollectorId}`);
+                }
+            }
+
+            finalCollectorId = autoCollectorId;
+
+            if (!finalCollectorId) {
+                console.warn(`⚠️ [UPDATE] Cliente ${id} sin cobrador: ${province} > ${district} > ${caserio}`);
+            }
+        }
+
         await query(`
             UPDATE clients 
             SET 
@@ -201,14 +308,14 @@ export const updateClient = async (req, res) => {
                 region = ?, province = ?, district = ?, caserio = ?, zone = ?, sector = ?,
                 address = ?, address_details = ?, contract_number = ?,
                 plan_type = ?, plan = ?, internet_speed = ?, cost = ?,
-                payment_day = ?, service_status = COALESCE(?, service_status)
+                payment_day = ?, collector_id = ?, service_status = COALESCE(?, service_status)
             WHERE id = ?
         `, [
             code || null, dni, fullName, phone, secondPhone || null,
             region || null, province || null, district || null, caserio || null, zone || null, sector || null,
             address || null, addressDetails || null, contractNumber || null,
             planType || 'INTERNET', plan || null, internetSpeed || null, cost || 0,
-            paymentDay || 7, service_status || null, id
+            paymentDay || 7, finalCollectorId || null, service_status || null, id
         ]);
 
         res.json({ success: true, message: 'Cliente actualizado exitosamente.' });
